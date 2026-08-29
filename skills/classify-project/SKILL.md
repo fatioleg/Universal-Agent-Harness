@@ -1,6 +1,6 @@
 ---
 name: classify-project
-description: Use when starting a new project with the Universal Agent Harness — walks the human through 15 structured questions to recommend an archetype, capabilities, tool contracts, and sensors before any Bootstrap Report is produced. Triggered by phrases like "start a new project", "bootstrap a project", "classify this project", "qual arquitetura de harness", "qual harness usar".
+description: Use when starting a new project with the Universal Agent Harness — walks the human through 24 structured questions (across 6 groups: complexity, evidence, knowledge, coordination, development discipline, observability) to recommend an archetype, capabilities, tool contracts, schemas, sensors, topology, autonomy, permissions, and SDD/TDD/brownfield/ADR/change-protocol configurations before any Bootstrap Report is produced. Triggered by phrases like "start a new project", "bootstrap a project", "classify this project", "qual arquitetura de harness", "qual harness usar".
 ---
 
 # Skill: classify-project
@@ -8,6 +8,40 @@ description: Use when starting a new project with the Universal Agent Harness �
 This skill runs BEFORE `bootstrap/BOOTSTRAP.md`. It produces a
 classification summary that the agent then uses to draft the
 Bootstrap Report.
+
+## Coverage of the 24 questions
+
+The questions cover every significant capability, archetype,
+tool contract, schema, sensor, and workflow in the harness:
+
+- **11 archetypes**: scientific-research, computational-
+  science, computational-chemistry, literature-review,
+  knowledge-base, data-analysis, software-development,
+  document-production, grant-project-proposal, full-sdd-
+  project, knowledge-digestion.
+- **22 capabilities**: discovery, specification, state-
+  continuity, source-ingestion, normalization, cataloging,
+  lexical-retrieval, semantic-retrieval, graph-retrieval,
+  context-compression, scientific-evidence, computational-
+  execution, data-analysis, artifact-production, independent-
+  review, external-write, publication, long-running-
+  orchestration, knowledge-digestion-pipeline, sdd-workflow,
+  subagent-orchestration, checkpoint-handoff.
+- **12 tool contracts**: check-invariants, diff-harness,
+  verify-artifact, list-events, sensor-trend, lock-drift-
+  check, scaffold-project, caveman-compress, markitdown-
+  normalize, graphify-build, obsidian-interface, notebooklm-
+  explore.
+- **11 extension schemas**: state, evidence-ledger, decisions,
+  tool-contract, permission-profile, failure-registry,
+  eval-result, observability-run, acceptance-criterion,
+  test-case, change-request.
+- **10 eval categories** from `evals/catalog.md`.
+- **Topologies A–E** and **autonomy levels L0–L5**.
+- **Workflows**: proportional design (complexity
+  classification), brownfield protocol, TDD test strategies,
+  ADR format, change protocol, state continuity, independent
+  review.
 
 ## Where this skill lives
 
