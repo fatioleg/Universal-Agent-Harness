@@ -1,0 +1,29 @@
+tool_id: notebooklm-explore
+capability: external-analysis
+input_schema: |
+  A canonical directory plus the analysis query.
+output_schema: |
+  A synthesized text response plus a metadata block (query,
+  model, session id, sources consulted) and a provenance record.
+  Workspace is the durable layer; NotebookLM is ephemeral by
+  default.
+permissions_required:
+  - read
+  - network
+side_effects: external
+failure_modes:
+  - mode: persistence-enabled
+    detection: NotebookLM session is set to persist
+    recovery: refuse; default to ephemeral; require explicit
+      human approval for persistence
+  - mode: sensitive-content
+    detection: corpus contains PII, PHI, or regulated data
+    recovery: refuse to send to NotebookLM; require a
+      redacted/preview corpus
+  - mode: upstream-unreachable
+    detection: NotebookLM MCP server not reachable
+    recovery: report; fall back to local LLM if available
+cost_estimate: "moderate (long-context model per query)"
+latency_estimate: "10-60 s per query"
+validation_method: "manual review of exported findings"
+eval_status: untested

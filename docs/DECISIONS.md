@@ -86,6 +86,31 @@
   implementations. AD-010 records this as a deliberate distinction, not an
   oversight.
 
+## AD-011 — v0.4.0 scope: SDD archetype + knowledge-digestion pipeline
+
+- Status: accepted
+- Date: 2026-08-29
+- Decision: extend v0.3.0 with two new archetypes that capture the
+  practitioner patterns the user explicitly relies on:
+  (1) `full-sdd-project` for projects needing the full Spec-Driven
+  Development lifecycle (Project Charter → Requirements → Architecture →
+  Validation → Deliverable), named subagent roles, persistent memory,
+  structured handoffs, gates, and a completion checklist; and
+  (2) `knowledge-digestion` for projects whose primary capability is
+  ingesting a corpus through the canonical five-stage pipeline
+  caveman → MarkItDown → Graphify → Obsidian → optional NotebookLM.
+  Both ship as opt-in archetypes (not H1 packages), accompanied by
+  dedicated docs (`docs/sdd.md`, `docs/knowledge-digestion.md`) and
+  five new tool contracts. No implementations ship with the
+  contracts (AD-010 honored).
+- Reason: v0.3.0 deliberately excluded SDD and the digestion pipeline as
+  defaults. The user works with both as a routine part of complex
+  projects, so the harness must offer them as first-class reference
+  patterns rather than forcing each project to reinvent them. AD-011
+  records the promotion to the v0.4.0 catalog while preserving the
+  "simplest sufficient harness" principle: every archetype, doc, and
+  contract is opt-in.
+
 ## AD-009 — GitHub distribution model
 
 - Status: accepted

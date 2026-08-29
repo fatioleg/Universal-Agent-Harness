@@ -52,3 +52,8 @@ Until then, the contract is a planning artifact, not a callable.
 | sensor-trend | Aggregate sensor pass/fail trends | Böckeler (sensors-cli) |
 | lock-drift-check | Verify project's pinned upstream commit matches actual | This repo INV-010 |
 | scaffold-project | Generate project-specific harness from input | OpenAI templates |
+| caveman-compress | Compress a retrieved text slice to fit a token budget | This repo's knowledge-digestion pipeline (Stage 1) |
+| markitdown-normalize | Convert PDF/DOCX/PPTX/XLSX/HTML/image to canonical Markdown | Microsoft MarkItDown (Stage 2) |
+| graphify-build | Build a knowledge graph with evidence pointers on every edge | Graphify (Stage 3) |
+| obsidian-interface | Sync a canonical directory to an Obsidian vault and back | Obsidian (Stage 4) |
+| notebooklm-explore | Send a corpus and query to NotebookLM via MCP, ephemeral by default | NotebookLM MCP (Stage 5, optional) |

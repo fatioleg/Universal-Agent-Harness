@@ -52,10 +52,10 @@ antes de qualquer modificação no projeto de destino.
 
 ### Arquétipos de referência
 
-Em `archetypes/` você encontra 9 padrões de workflow documentados.
-**Atenção: são referência, não pacotes H1**. Não são mesclados
-via `core/merge-policy.yaml` até que pelo menos dois projetos
-reais justifiquem a promoção:
+Em `archetypes/` você encontra 11 padrões de workflow
+documentados. **Atenção: são referência, não pacotes H1**.
+Não são mesclados via `core/merge-policy.yaml` até que pelo
+menos dois projetos reais justifiquem a promoção:
 
 - `scientific-research` — investigação empírica, ledger de
   evidência pesado.
@@ -75,6 +75,16 @@ reais justifiquem a promoção:
   formatação.
 - `grant-project-proposal` — prazo + orçamento + sensores de
   conformidade do financiador.
+- `full-sdd-project` — Spec-Driven Development completo:
+  cinco specs (Charter, Requirements, Architecture, Validation,
+  Deliverable), subagentes nomeados (Research, Domain Expert,
+  Data Auditor, Implementation, QA, Red-Team), Context Packs,
+  Subagent Reports, Handoffs, Issues, Decisions, Gates,
+  Completion checklist. Veja `docs/sdd.md`.
+- `knowledge-digestion` — pipeline canônica de ingestão
+  `caveman → MarkItDown → Graphify → Obsidian → NotebookLM
+  (opcional)`. Cada ferramenta é opt-in com papel definido.
+  Veja `docs/knowledge-digestion.md`.
 
 ### Schemas de runtime
 
@@ -135,6 +145,15 @@ existem conceitualmente:
 - `lock-drift-check` — drift entre commit fixado e upstream real.
 - `scaffold-project` — geração de harness de projeto a partir
   de `project.yaml`.
+- `caveman-compress` — comprimir slice recuperado ao budget
+  de tokens.
+- `markitdown-normalize` — converter PDF/DOCX/PPTX/XLSX/HTML/
+  image para Markdown canônico.
+- `graphify-build` — grafo de conhecimento com ponteiro de
+  evidência em cada aresta.
+- `obsidian-interface` — sincronizar canônico ↔ vault Obsidian.
+- `notebooklm-explore` — análise externa via NotebookLM MCP
+  (efêmero por default).
 
 ### Skill de classificação interativa
 
@@ -192,7 +211,7 @@ Universal-Agent-Harness/
 │   ├── schemas/extension/    # 8 schemas de runtime
 │   └── evals/                # (placeholder)
 │
-├── archetypes/               # 9 padrões de referência (não H1)
+├── archetypes/               # 11 padrões de referência (não H1)
 │
 ├── bootstrap/                # BOOTSTRAP.md, NEW-PROJECT.md, exemplo
 │
@@ -204,11 +223,11 @@ Universal-Agent-Harness/
 │
 ├── skills/classify-project/  # skill interativa
 │
-├── contracts/tools/          # 7 contratos YAML (sem código)
+├── contracts/tools/          # 12 contratos YAML (sem código)
 │
 ├── docs/                     # ARCHITECTURE, agent-topology,
 │                             # autonomy-levels, glossary, references,
-│                             # DECISIONS
+│                             # sdd, knowledge-digestion, DECISIONS
 │
 ├── evals/
 │   ├── bootstrap-cases.yaml  # cases para validar este repo
@@ -229,23 +248,24 @@ python scripts/validate_repo.py
 ```
 
 O mesmo validador roda no GitHub Actions. Saída esperada em
-v0.3.0:
+v0.4.0:
 
 ```text
-PASS: Universal Agent Harness 0.3.0
-PASS: 70 required files
+PASS: Universal Agent Harness 0.4.0
+PASS: 79 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
 PASS: 8 extension schemas
-PASS: 7 tool contracts
+PASS: 12 tool contracts
 ```
 
 ## Status
 
-Versão **0.3.0**. Núcleo multiplataforma, 9 arquétipos de
-referência, 8 schemas de runtime, skill de classificação,
-contratos de ferramentas (sem implementações), catálogo
-universal de evals.
+Versão **0.4.0**. Núcleo multiplataforma, 11 arquétipos de
+referência (incluindo `full-sdd-project` e `knowledge-digestion`),
+8 schemas de runtime, skill de classificação, 12 contratos de
+ferramentas (sem implementações), catálogo universal de evals,
+guias de SDD e knowledge-digestion.
 
 A classificação é agent-assisted. Um resolvedor automático
 completo só será considerado depois que pilotos reais

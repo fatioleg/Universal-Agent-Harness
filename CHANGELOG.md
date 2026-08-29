@@ -24,6 +24,16 @@
 - extended `scripts/validate_repo.py` with new required-file checks and schema/contract validation;
 - documented AD-008 and AD-009 in `docs/DECISIONS.md`.
 
+## 0.4.0 — 2026-08-29
+
+- added `archetypes/full-sdd-project.md` (Spec-Driven Development lifecycle, named subagent roles, persistent memory, gates, handoffs);
+- added `archetypes/knowledge-digestion.md` (caveman + MarkItDown + Graphify + Obsidian + optional NotebookLM pipeline as capability bundle);
+- added `docs/sdd.md` with SPEC-00 through SPEC-04, Context Pack, Subagent Report, Handoff, Issues, Decisions, Gates, Completion checklist;
+- added `docs/knowledge-digestion.md` describing the five-stage pipeline with role, when-to-use, and tradeoffs per stage;
+- added `contracts/tools/caveman-compress.yaml`, `markitdown-normalize.yaml`, `graphify-build.yaml`, `obsidian-interface.yaml`, `notebooklm-explore.yaml` (12 tool contracts total);
+- added capabilities `knowledge-digestion-pipeline`, `sdd-workflow`, `subagent-orchestration`, `checkpoint-handoff` to `core/universal.yaml`;
+- documented AD-011 recording the v0.4.0 scope.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

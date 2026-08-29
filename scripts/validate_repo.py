@@ -73,6 +73,8 @@ REQUIRED_FILES = [
     "archetypes/software-development.md",
     "archetypes/document-production.md",
     "archetypes/grant-project-proposal.md",
+    "archetypes/full-sdd-project.md",
+    "archetypes/knowledge-digestion.md",
     "skills/classify-project/SKILL.md",
     "skills/classify-project/questions.md",
     "skills/classify-project/decision-tree.md",
@@ -85,11 +87,18 @@ REQUIRED_FILES = [
     "contracts/tools/sensor-trend.yaml",
     "contracts/tools/lock-drift-check.yaml",
     "contracts/tools/scaffold-project.yaml",
+    "contracts/tools/caveman-compress.yaml",
+    "contracts/tools/markitdown-normalize.yaml",
+    "contracts/tools/graphify-build.yaml",
+    "contracts/tools/obsidian-interface.yaml",
+    "contracts/tools/notebooklm-explore.yaml",
     "examples/README.md",
     "docs/agent-topology.md",
     "docs/autonomy-levels.md",
     "docs/glossary.md",
     "docs/references.md",
+    "docs/sdd.md",
+    "docs/knowledge-digestion.md",
 ]
 
 

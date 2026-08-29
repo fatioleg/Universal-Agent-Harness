@@ -1,0 +1,22 @@
+tool_id: caveman-compress
+capability: context-compression
+input_schema: |
+  A retrieved slice of text plus a target token budget.
+output_schema: |
+  A compressed slice that fits within the target budget, plus
+  a short metadata block recording original size, compressed
+  size, and lossy-vs-lossless flag.
+permissions_required:
+  - read
+side_effects: none
+failure_modes:
+  - mode: budget-too-small
+    detection: target budget < minimum readable slice
+    recovery: report and require larger budget or smaller slice
+  - mode: source-malformed
+    detection: input slice is empty or non-text
+    recovery: report and skip compression
+cost_estimate: "small (single LLM call per slice)"
+latency_estimate: "1-5 s"
+validation_method: "deterministic size check + semantic sanity"
+eval_status: untested

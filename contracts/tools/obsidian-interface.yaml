@@ -1,0 +1,24 @@
+tool_id: obsidian-interface
+capability: human-knowledge-interface
+input_schema: |
+  A canonical directory plus the target vault path.
+output_schema: |
+  A populated Obsidian vault with bidirectional links, tag
+  structure, and a sync manifest. Edits in the vault must
+  export back to canonical/ with provenance.
+permissions_required:
+  - read
+  - write
+side_effects: write
+failure_modes:
+  - mode: edit-without-export
+    detection: a vault file diverges from its canonical twin
+    recovery: flag for human review; do not silently overwrite
+      canonical
+  - mode: vault-target-non-empty
+    detection: target vault path is not empty
+    recovery: report; require explicit merge decision
+cost_estimate: "negligible (file copies + link extraction)"
+latency_estimate: "< 30 s for hundreds of documents"
+validation_method: "deterministic sync + bidirectional link check"
+eval_status: untested

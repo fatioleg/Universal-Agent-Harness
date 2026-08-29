@@ -1,0 +1,27 @@
+tool_id: graphify-build
+capability: knowledge-graph-build
+input_schema: |
+  A canonical directory plus a list of relation types to extract
+  (e.g., molecule-target, paper-claim, method-result).
+output_schema: |
+  A graph database or graph file (JSONL/Nebula/etc) where every
+  edge carries a source pointer to a CLAIM-NNN in the evidence
+  ledger.
+permissions_required:
+  - read
+  - write
+side_effects: write
+failure_modes:
+  - mode: edge-without-evidence
+    detection: an extracted edge has no claim pointer
+    recovery: refuse to emit; require an evidence-ledger entry
+  - mode: relation-type-unknown
+    detection: requested relation type not in the vocabulary
+    recovery: report; require explicit vocabulary update
+  - mode: corpus-too-large
+    detection: canonical directory exceeds declared budget
+    recovery: report; require smaller scope or chunked run
+cost_estimate: "moderate (LLM-assisted extraction)"
+latency_estimate: "minutes for hundreds of documents"
+validation_method: "edge-without-evidence check + schema validate"
+eval_status: untested

@@ -21,7 +21,7 @@ A reference pattern becomes an H1 package only when:
 
 Until all four are satisfied, the pattern remains a reference here.
 
-## The 9 reference patterns
+## The 11 reference patterns
 
 | Pattern | When to reach for it |
 |---|---|
@@ -34,6 +34,8 @@ Until all four are satisfied, the pattern remains a reference here.
 | software-development | Code-centered; tests/linters as primary sensors; CI gates |
 | document-production | Template-driven; formatting validators; review cycles |
 | grant-project-proposal | Deadline-aware; funder-specific sensors; budget computation |
+| full-sdd-project | Complex multi-week/multi-agent project needing full SDD lifecycle, named subagent roles, persistent memory, gates, handoffs |
+| knowledge-digestion | Project whose primary capability is ingesting a corpus through caveman + MarkItDown + Graphify + Obsidian (+ optional NotebookLM) |
 
 ## How to read a stub
 

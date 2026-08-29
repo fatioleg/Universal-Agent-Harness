@@ -1,0 +1,27 @@
+tool_id: markitdown-normalize
+capability: source-normalization
+input_schema: |
+  A path to a source file (PDF, DOCX, PPTX, XLSX, HTML, image)
+  plus the canonical output layout (source/canonical/metadata/provenance).
+output_schema: |
+  A canonical Markdown file, a metadata YAML, and a provenance
+  JSON, all referencing the unchanged source file.
+permissions_required:
+  - read
+  - write
+side_effects: write
+failure_modes:
+  - mode: unsupported-format
+    detection: source file extension not in supported list
+    recovery: report; do not produce partial output
+  - mode: ocr-low-confidence
+    detection: image-based PDF returns empty or partial text
+    recovery: report; flag the canonical file as low-confidence
+      and require human review
+  - mode: source-write-attempt
+    detection: tool tries to write back to source/ path
+    recovery: refuse; sources are immutable
+cost_estimate: "small per file (seconds)"
+latency_estimate: "1-10 s per file"
+validation_method: "deterministic write + schema check"
+eval_status: untested

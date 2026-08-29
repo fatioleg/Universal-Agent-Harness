@@ -71,6 +71,10 @@ capability_vocabulary:
   - external-write
   - publication
   - long-running-orchestration
+  - knowledge-digestion-pipeline
+  - sdd-workflow
+  - subagent-orchestration
+  - checkpoint-handoff
 
 references:
   invariants: invariants.yaml
