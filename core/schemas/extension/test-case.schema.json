@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/test-case.schema.json",
+  "title": "Test Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["test_id", "ac_id", "pyramid_layer", "expected", "actual"],
+  "properties": {
+    "test_id": {"type": "string", "pattern": "^TEST-[0-9]{4,}$"},
+    "ac_id": {"type": "string", "pattern": "^AC-[0-9]{4,}$"},
+    "name": {"type": "string", "minLength": 1},
+    "pyramid_layer": {
+      "enum": ["unit", "integration", "contract", "end-to-end", "regression", "scientific", "agent-eval", "simulation", "characterization"]
+    },
+    "approach": {"enum": ["tdd", "characterization", "approval", "mutation-derived", "exploratory"], "default": "tdd"},
+    "expected": {"type": "string"},
+    "actual": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "sensor_id": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "last_run_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

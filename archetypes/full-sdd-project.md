@@ -254,3 +254,18 @@ phase boundary.
 
 Pick `full-sdd-project` when the project genuinely needs the
 whole machinery. Pick a narrower archetype when it does not.
+
+## Cross-references
+
+- `docs/sdd.md` — full Spec-Driven Development workflow, REQ→AC
+  →Test→Impl traceability, Gate A–D.
+- `docs/tdd.md` — TDD red-green-refactor and the test pyramid.
+- `docs/brownfield.md` — working with existing codebases.
+- `docs/adr-template.md` — ADR format for significant decisions.
+- `templates/project/task-plan.template.md` — per-task plan.
+- `templates/project/acceptance-criteria.template.md` — AC
+  coverage matrix.
+- `templates/project/test-cases.template.md` — test pyramid mix.
+- `core/schemas/extension/acceptance-criterion.schema.json`.
+- `core/schemas/extension/test-case.schema.json`.
+- `core/schemas/extension/change-request.schema.json`.

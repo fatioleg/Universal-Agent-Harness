@@ -24,3 +24,4 @@ when interpreting the invariants.
 7. [Progressive disclosure](./07-progressive-disclosure.md) — INV-007
 8. [Prefer deterministic](./08-prefer-deterministic.md) — INV-008
 9. [Reproducibility](./09-reproducibility.md) — INV-003, INV-012
+10. [Proportional design](./10-proportional-design.md) — INV-011

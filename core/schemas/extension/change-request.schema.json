@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/change-request.schema.json",
+  "title": "Change Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cr_id", "title", "context", "decision", "requested_by", "created_at"],
+  "properties": {
+    "cr_id": {"type": "string", "pattern": "^CR-[0-9]{4,}$"},
+    "title": {"type": "string", "minLength": 5},
+    "context": {"type": "string"},
+    "affected_requirements": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^REQ-[0-9]{4,}$"},
+      "uniqueItems": true
+    },
+    "affected_acceptance_criteria": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^AC-[0-9]{4,}$"},
+      "uniqueItems": true
+    },
+    "affected_tests": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^TEST-[0-9]{4,}$"},
+      "uniqueItems": true
+    },
+    "decision": {"type": "string"},
+    "rationale": {"type": "string"},
+    "reversible": {"type": "boolean", "default": true},
+    "requested_by": {"type": "string"},
+    "approved_by": {"type": ["string", "null"]},
+    "status": {
+      "enum": ["proposed", "approved", "implemented", "verified", "rejected"],
+      "default": "proposed"
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "implemented_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

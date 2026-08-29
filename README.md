@@ -163,6 +163,62 @@ quando você pede para começar um projeto novo. 15 perguntas em
 capacidades, contratos, sensores, schemas, topologia e
 autonomia ficam pré-configurados antes do Bootstrap Report.
 
+### Disciplina de testes (TDD e test pyramid)
+
+`docs/tdd.md` codifica a disciplina de testes com respaldo em
+fontes primárias:
+
+- **TDD red-green-refactor** (Kent Beck via Fowler).
+- **Test pyramid** prático — unit, integration, contract,
+  end-to-end, regression — com Ham Vocke no Fowler site.
+- **Agent testing pyramid** — deterministic unit (base) →
+  evals & optimization (middle) → simulations (peak), per
+  LangWatch.
+- **Mutation testing** e **approved scenarios** (Böckeler).
+- **Characterization tests** para brownfield (Feathers).
+- Regras explícitas de "quando TDD se aplica" e "quando não".
+
+### Brownfield safety
+
+`docs/brownfield.md` codifica o protocolo de Feathers para
+trabalhar com código existente:
+
+- Definição de legacy code como código sem testes.
+- Legacy Code Change Algorithm: identify change points →
+  find seams → break dependencies → write characterization
+  tests → change → refactor.
+- Técnicas Sprout e Wrap.
+- Cautelas específicas para agentes (Hashimoto: end-of-day
+  agents, sem ship unsupervised).
+
+### ADR format canônico
+
+`docs/adr-template.md` define o formato de ADR (Context,
+Decision, Alternatives, Consequences) alinhado com AWS,
+Microsoft Azure Well-Architected Framework e a comunidade
+adr.github.io, com exemplo preenchido.
+
+### Rastreabilidade REQ→AC→Test→Impl
+
+Três novos schemas de extensão formalizam identificadores:
+
+- `acceptance-criterion.schema.json` (AC-NNNN-NN).
+- `test-case.schema.json` (TEST-NNNN-NN com pyramid_layer).
+- `change-request.schema.json` (CR-NNNN).
+
+Mais três templates:
+
+- `templates/project/acceptance-criteria.template.md`.
+- `templates/project/test-cases.template.md`.
+- `templates/project/task-plan.template.md`.
+
+### Princípio da arquitetura proporcional
+
+`core/principles/10-proportional-design.md` registra a regra
+"menor arquitetura suficiente" — classificar projeto em
+trivial / pequeno / médio / grande / complexo-crítico e
+ativar somente o que a classe de risco exige.
+
 **Como ativar a skill em um projeto novo:**
 
 - Claude Code descobre a skill automaticamente em
@@ -227,7 +283,8 @@ Universal-Agent-Harness/
 │
 ├── docs/                     # ARCHITECTURE, agent-topology,
 │                             # autonomy-levels, glossary, references,
-│                             # sdd, knowledge-digestion, DECISIONS
+│                             # sdd, knowledge-digestion, tdd,
+│                             # brownfield, adr-template, DECISIONS
 │
 ├── evals/
 │   ├── bootstrap-cases.yaml  # cases para validar este repo
@@ -248,24 +305,25 @@ python scripts/validate_repo.py
 ```
 
 O mesmo validador roda no GitHub Actions. Saída esperada em
-v0.4.0:
+v0.5.0:
 
 ```text
-PASS: Universal Agent Harness 0.4.0
-PASS: 79 required files
+PASS: Universal Agent Harness 0.5.0
+PASS: 89 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
-PASS: 8 extension schemas
+PASS: 11 extension schemas
 PASS: 12 tool contracts
 ```
 
 ## Status
 
-Versão **0.4.0**. Núcleo multiplataforma, 11 arquétipos de
-referência (incluindo `full-sdd-project` e `knowledge-digestion`),
-8 schemas de runtime, skill de classificação, 12 contratos de
-ferramentas (sem implementações), catálogo universal de evals,
-guias de SDD e knowledge-digestion.
+Versão **0.5.0**. Núcleo multiplataforma, 11 arquétipos de
+referência, 11 schemas de runtime (incluindo AC, Test,
+ChangeRequest), skill de classificação, 12 contratos de
+ferramentas (sem implementações), catálogo universal de
+evals, guias de SDD, knowledge-digestion, TDD, brownfield e
+ADR format.
 
 A classificação é agent-assisted. Um resolvedor automático
 completo só será considerado depois que pilotos reais

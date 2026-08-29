@@ -365,6 +365,117 @@ Before declaring the project complete:
 - [ ] Final handoff created.
 - [ ] Deliverables clearly identified.
 
+## Gate D — Done
+
+A task is not done when the code runs. A task is done when, as
+applicable:
+
+- Requirement satisfied.
+- Acceptance criteria verified (test green or manual check
+  recorded with reason).
+- Tests added at the right pyramid layer (see `docs/tdd.md`).
+- No regressions introduced (regression suite green).
+- Integration validated where applicable.
+- Errors handled (or explicit "no error path needed" with
+  reason).
+- Documentation updated (spec / ADR / inline comment).
+- No critical hypothesis remains hidden.
+- State updated (schema in
+  `core/schemas/extension/state.schema.json`).
+
+## Requirement traceability
+
+Maintain identifiers through the chain:
+
+```text
+REQ-NNNN
+  └── AC-NNNN-NN      (one or more acceptance criteria)
+        └── TEST-NNNN-NN  (one or more executable checks)
+              └── implementation
+```
+
+Schemas:
+
+- `core/schemas/extension/acceptance-criterion.schema.json`
+  (AC records).
+- `core/schemas/extension/test-case.schema.json` (TEST records).
+
+The harness answers two questions at any moment:
+
+> "What proves that REQ-0003 is implemented?"
+> AC-0003-01 → TEST-0003-01 → green.
+
+> "Why does component X exist?"
+> REQ-0003 → AC-0003-01 → component X.
+
+If a component has no upstream requirement, it is dead code. If
+an acceptance criterion has no test, it is unverified (or
+explicitly manual).
+
+## Change protocol
+
+When a requirement changes:
+
+```text
+Change request (CR-NNNN)
+  ↓
+Update affected REQ
+  ↓
+Update affected AC
+  ↓
+Update or add TEST
+  ↓
+Modify implementation
+  ↓
+Run regression suite
+  ↓
+Record decision (DEC-NNNN) + ADR if hard to reverse
+```
+
+Schema: `core/schemas/extension/change-request.schema.json`.
+
+Do not modify code and then update the spec to fit. The spec is
+the **intent**; the code is the **current behavior**. When
+they diverge, the diff is itself a change request.
+
+## Prohibitions
+
+Following established engineering practice:
+
+- Do not implement before understanding the problem.
+- Do not add unspecified features.
+- Do not label work "TDD" when tests were written after the
+  implementation.
+- Do not consider code without tests automatically correct.
+- Do not change tests to make a defective implementation pass.
+- Do not remove validations to silence failures.
+- Do not mask errors.
+- Do not ignore broken tests.
+- Do not create excessively sophisticated architecture.
+- Do not introduce dependencies without need.
+- Do not create fictitious documentation.
+- Do not claim success without running or verifying the
+  validation mechanisms available.
+
+## Change Protocol — Gate A–D
+
+Use these task-level gates inside the SDD lifecycle:
+
+- **Gate A — Specification Ready**: objective understood,
+  scope defined, MUST requirements identified, acceptance
+  criteria sufficient.
+- **Gate B — Architecture Ready**: components defined,
+  responsibilities clear, architectural risks assessed.
+- **Gate C — Implementation Ready**: per task, requirement
+  identified, expected behavior known, test strategy chosen.
+- **Gate D — Done**: implemented, tested, criteria verified,
+  documentation updated.
+
+These gates do not require explicit human approval at each
+crossing. When the agent has autonomy, it verifies internally
+and records briefly. Stop and ask only on material ambiguity
+that cannot be resolved safely from available information.
+
 ## Cross-references
 
 - `archetypes/full-sdd-project.md` — the archetype that bundles
@@ -375,3 +486,6 @@ Before declaring the project complete:
   per-role permissions.
 - `docs/agent-topology.md` — Levels A–E.
 - `docs/autonomy-levels.md` — L0–L5.
+- `docs/tdd.md` — TDD red-green-refactor and the test pyramid.
+- `docs/brownfield.md` — working with existing codebases.
+- `docs/adr-template.md` — ADR format for significant decisions.

@@ -19,6 +19,38 @@ harnesses. This list is the working bibliography for v0.3.0.
   site).
   https://martinfowler.com/articles/sensors-for-coding-agents.html
 
+## Test discipline, SDD, and brownfield practice
+
+- **Kent Beck / Martin Fowler** — Test-Driven Development.
+  https://martinfowler.com/bliki/TestDrivenDevelopment.html
+- **Ham Vocke** — The Practical Test Pyramid (Martin Fowler
+  site).
+  https://martinfowler.com/articles/practical-test-pyramid.html
+- **Michael Feathers** — Working Effectively with Legacy Code
+  (key points summary).
+  https://understandlegacycode.com/blog/key-points-of-working-effectively-with-legacy-code/
+- **Michael Feathers** — Characterization Tests.
+  https://daedtech.com/characterization-tests/
+- **LangWatch** — The Agent Testing Pyramid (June 2025).
+  https://langwatch.ai/scenario/best-practices/the-agent-testing-pyramid/
+- **Rafal Wilinski** — Agentic Evals Pyramid.
+  https://rwilinski.ai/posts/evals-pyramid/
+- **Microsoft Developer Blog** — Spec-First Approach to
+  AI-Native Engineering.
+  https://developer.microsoft.com/blog/spec-driven-development-ai-native-engineering/
+- **IBM** — What is Spec-Driven Development?
+  https://www.ibm.com/think/topics/spec-driven-development
+- **Allegro Tech Blog** — Spec-Driven Development best practices.
+  https://blog.allegro.tech/2026/06/spec-driven-development-best-practices.html
+- **Martin Fowler** — Exploring Gen-AI: SDD tools.
+  https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+- **AWS** — Master ADRs best practices.
+  https://aws.amazon.com/blogs/architecture/master-architecture-decision-records-adrs-best-practices-for-effective-decision-making/
+- **Microsoft** — Maintain an ADR.
+  https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record
+- **adr.github.io** — Architectural Decision Records community.
+  https://adr.github.io/
+
 ## Related tooling
 
 - Birgitta Böckeler — `sensors-cli` (sidecar CLI for sensor

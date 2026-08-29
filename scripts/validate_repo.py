@@ -40,6 +40,9 @@ REQUIRED_FILES = [
     "templates/project/CLAUDE.md.template",
     "templates/project/project.yaml.template",
     "templates/project/harness.lock.yaml.template",
+    "templates/project/acceptance-criteria.template.md",
+    "templates/project/test-cases.template.md",
+    "templates/project/task-plan.template.md",
     "evals/bootstrap-cases.yaml",
     ".github/workflows/validate.yml",
     # v0.3.0 additions
@@ -54,6 +57,7 @@ REQUIRED_FILES = [
     "core/principles/07-progressive-disclosure.md",
     "core/principles/08-prefer-deterministic.md",
     "core/principles/09-reproducibility.md",
+    "core/principles/10-proportional-design.md",
     "core/schemas/extension/state.schema.json",
     "core/schemas/extension/evidence-ledger.schema.json",
     "core/schemas/extension/decisions.schema.json",
@@ -62,6 +66,9 @@ REQUIRED_FILES = [
     "core/schemas/extension/failure-registry.schema.json",
     "core/schemas/extension/eval-result.schema.json",
     "core/schemas/extension/observability-run.schema.json",
+    "core/schemas/extension/acceptance-criterion.schema.json",
+    "core/schemas/extension/test-case.schema.json",
+    "core/schemas/extension/change-request.schema.json",
     "evals/catalog.md",
     "archetypes/README.md",
     "archetypes/scientific-research.md",
@@ -99,6 +106,9 @@ REQUIRED_FILES = [
     "docs/references.md",
     "docs/sdd.md",
     "docs/knowledge-digestion.md",
+    "docs/tdd.md",
+    "docs/brownfield.md",
+    "docs/adr-template.md",
 ]
 
 
@@ -191,6 +201,9 @@ def main() -> None:
         "core/schemas/extension/failure-registry.schema.json",
         "core/schemas/extension/eval-result.schema.json",
         "core/schemas/extension/observability-run.schema.json",
+        "core/schemas/extension/acceptance-criterion.schema.json",
+        "core/schemas/extension/test-case.schema.json",
+        "core/schemas/extension/change-request.schema.json",
     ]
     for relative in extension_schemas:
         schema = load_json(relative)

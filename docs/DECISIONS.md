@@ -111,6 +111,50 @@
   "simplest sufficient harness" principle: every archetype, doc, and
   contract is opt-in.
 
+## AD-012 — v0.5.0 scope: TDD discipline, brownfield safety, ADR format
+
+- Status: accepted
+- Date: 2026-08-29
+- Decision: extend v0.4.0 with three practice-area docs grounded in
+  established primary sources, plus the schemas and templates that
+  make them executable in projects:
+  (1) `docs/tdd.md` codifies TDD red-green-refactor (Kent Beck /
+  Fowler), the practical test pyramid (Ham Vocke on Martin Fowler's
+  site), the Agent Testing Pyramid (LangWatch), mutation testing
+  and approved scenarios (Böckeler), and characterization tests
+  (Feathers). Each technique is framed with explicit "when to apply"
+  and "when not to apply".
+  (2) `docs/brownfield.md` codifies Michael Feathers' Legacy Code
+  Change Algorithm — identify change points → find seams → break
+  dependencies → write characterization tests → change → refactor —
+  with Sprout, Wrap, and seam techniques. Includes agent-specific
+  cautions grounded in Hashimoto's adoption story.
+  (3) `docs/adr-template.md` codifies the canonical ADR format
+  (Context, Decision, Alternatives, Consequences) per AWS,
+  Microsoft Azure Well-Architected Framework, and adr.github.io,
+  with a worked example.
+  The `software-development` archetype gains a recommended mutation-
+  testing sensor (per Böckeler — coverage alone is insufficient).
+  The `full-sdd-project` archetype gains cross-references to the
+  new docs and to three new project templates (`acceptance-criteria`,
+  `test-cases`, `task-plan`).
+  Three new extension schemas formalize REQ→AC→Test→Impl traceability:
+  `acceptance-criterion.schema.json`, `test-case.schema.json`,
+  `change-request.schema.json`.
+  One new principle (`10-proportional-design.md`) records the
+  smallest-sufficient-architecture rule.
+  No implementations ship. Schemas and templates only. AD-010
+  honored.
+- Reason: v0.4.0 added the SDD archetype and the knowledge-digestion
+  pipeline but did not formalize the test discipline or the
+  brownfield protocol that practitioners rely on. Cross-source
+  audit (Kent Beck via Fowler, Fowler / Ham Vocke Practical Test
+  Pyramid, Feathers Working Effectively with Legacy Code, LangWatch
+  Agent Testing Pyramid, Böckeler sensors article, AWS / Microsoft /
+  adr.github.io for ADRs) confirms that each piece has primary or
+  mainstream-industry support. AD-012 records the v0.5.0 scope and
+  the explicit citation of primary sources in `docs/references.md`.
+
 ## AD-009 — GitHub distribution model
 
 - Status: accepted

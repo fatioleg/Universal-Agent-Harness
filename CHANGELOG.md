@@ -34,6 +34,19 @@
 - added capabilities `knowledge-digestion-pipeline`, `sdd-workflow`, `subagent-orchestration`, `checkpoint-handoff` to `core/universal.yaml`;
 - documented AD-011 recording the v0.4.0 scope.
 
+## 0.5.0 — 2026-08-29
+
+- added `docs/tdd.md` — TDD red-green-refactor (Kent Beck / Fowler), test pyramid (Fowler / Ham Vocke), agent testing pyramid (LangWatch), mutation testing and approved scenarios (Böckeler), characterization tests (Feathers), test discipline rules and Definition of Done;
+- added `docs/brownfield.md` — Legacy Code Change Algorithm (Feathers), characterization tests, seams, Sprout / Wrap techniques, agent-specific brownfield cautions (Hashimoto), safety checklist;
+- added `docs/adr-template.md` — canonical ADR format (Context / Decision / Alternatives / Consequences) per AWS, Microsoft Azure, adr.github.io, with worked example;
+- added 3 extension schemas: `acceptance-criterion.schema.json`, `test-case.schema.json`, `change-request.schema.json` (REQ→AC→Test→Impl traceability IDs);
+- added `core/principles/10-proportional-design.md` — the smallest sufficient architecture satisfies the actual risks and constraints;
+- added 3 project templates: `acceptance-criteria.template.md`, `test-cases.template.md`, `task-plan.template.md`;
+- updated `docs/sdd.md` with requirement traceability, change protocol, prohibitions, Gate A–D, Definition of Done for tasks;
+- updated `archetypes/full-sdd-project.md` and `archetypes/software-development.md` with cross-references to the new docs;
+- updated `docs/references.md` with primary sources for TDD, test pyramid, brownfield, SDD enterprise practice, and ADRs;
+- documented AD-012 recording the v0.5.0 scope.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

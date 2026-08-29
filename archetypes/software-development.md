@@ -23,10 +23,13 @@
 
 ## Required sensors
 
-- Project-defined tests
+- Project-defined tests (unit, integration, contract, e2e —
+  see `docs/tdd.md` for the pyramid)
 - Linter (ESLint, Ruff, etc.)
 - Type checker (mypy, tsc, etc.)
 - EVAL-006 artifact generation
+- Mutation testing (Stryker for JS/TS; optional but recommended
+  per Böckeler — coverage alone is insufficient)
 
 ## Typical tool profile
 
@@ -66,3 +69,9 @@ infrastructure changes.
 A library maintained by one or two engineers with conventional CI.
 The harness runs tests on every commit, applies formatting,
 updates the changelog, and opens a PR with the changes.
+
+## Cross-references
+
+- `docs/tdd.md` — TDD red-green-refactor and the test pyramid.
+- `docs/brownfield.md` — when modifying existing code rather
+  than greenfield.

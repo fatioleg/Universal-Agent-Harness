@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/acceptance-criterion.schema.json",
+  "title": "Acceptance Criterion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ac_id", "requirement_id", "description", "verification"],
+  "properties": {
+    "ac_id": {"type": "string", "pattern": "^AC-[0-9]{4,}$"},
+    "requirement_id": {"type": "string", "pattern": "^REQ-[0-9]{4,}$"},
+    "description": {"type": "string", "minLength": 5},
+    "verification": {
+      "enum": ["executable-test", "manual-checklist", "human-judgment", "sensor-id"]
+    },
+    "test_id": {"type": ["string", "null"], "pattern": "^TEST-[0-9]{4,}$"},
+    "priority": {"enum": ["MUST", "SHOULD", "COULD", "OUT"], "default": "MUST"},
+    "status": {
+      "enum": ["proposed", "approved", "implemented", "verified", "retired"],
+      "default": "proposed"
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "verified_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
