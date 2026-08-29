@@ -163,6 +163,46 @@ quando você pede para começar um projeto novo. 15 perguntas em
 capacidades, contratos, sensores, schemas, topologia e
 autonomia ficam pré-configurados antes do Bootstrap Report.
 
+### Spec-Driven Development (SDD)
+
+SDD é o workflow estruturado para projetos complexos. Vive em
+três lugares:
+
+- **`docs/sdd.md`** — guia canônica do SDD no harness. Cobre
+  cinco specs (Project Charter, Requirements, Architecture,
+  Validation, Deliverable), Context Pack, Subagent Report,
+  Handoff, Issues, Decisions, Gates (A–D), Definition of
+  Done, change protocol, lista de proibições, e a regra
+  "especificação é source of truth para intenção; código é
+  source of truth para comportamento atual".
+
+- **`archetypes/full-sdd-project.md`** — archetype opt-in para
+  projetos que precisam da máquina completa: SDD workflow,
+  seis subagentes nomeados (Research, Domain Expert, Data
+  Auditor, Implementation, QA, Red-Team), persistent memory,
+  handoffs estruturados, gates em sequência. Aciona a
+  capability `sdd-workflow`.
+
+- **`templates/project/`** — três templates novos para
+  operacionalizar o SDD em um projeto:
+  - `acceptance-criteria.template.md` — REQ→AC→Test→Impl
+    com matriz de cobertura.
+  - `test-cases.template.md` — pyramid mix + estrutura
+    given/when/then.
+  - `task-plan.template.md` — decomposição por tarefa com
+    Definition of Done por task.
+
+Schemas de extensão formalizam os identificadores:
+
+- `acceptance-criterion.schema.json` (AC-NNNN-NN).
+- `test-case.schema.json` (TEST-NNNN-NN com `pyramid_layer`).
+- `change-request.schema.json` (CR-NNNN).
+
+A regra de **proporcionalidade** vale: SDD completo só se
+aplica a projetos médios / grandes / complexos. Projetos
+triviais não precisam das cinco specs — uma página de charter
+já basta.
+
 ### Disciplina de testes (TDD e test pyramid)
 
 `docs/tdd.md` codifica a disciplina de testes com respaldo em
@@ -401,11 +441,13 @@ específicas deste design. A bibliografia completa está em
 
 ### Camada 2 — Test discipline e Spec-Driven Development
 
+#### 2a — TDD e test pyramid
+
 - **Kent Beck via Martin Fowler — Test-Driven Development.**
   https://martinfowler.com/bliki/TestDrivenDevelopment.html
 
   Onde entra: `docs/tdd.md` codifica o ciclo red-green-refactor
-  (Beck) com a ressalva de Fowler que "no é bala de prata" e
+  (Beck) com a ressalva de Fowler que "não é bala de prata" e
   que o terceiro passo (refactor) é o mais comumente
   negligenciado.
 
@@ -416,7 +458,7 @@ específicas deste design. A bibliografia completa está em
   Onde entra: shape da pirâmide de testes — unit na base,
   integration no meio, e2e no topo. Regra "push tests down
   the pyramid". "Don't test trivial code". "Test observable
-  behavior, not implementation.""
+  behavior, not implementation."
 
 - **LangWatch — The Agent Testing Pyramid (June 2025).**
   https://langwatch.ai/scenario/best-practices/the-agent-testing-pyramid/
@@ -433,6 +475,8 @@ específicas deste design. A bibliografia completa está em
   iteração rápida + trajectory evals para confiança no
   workflow.
 
+#### 2b — Brownfield (Feathers)
+
 - **Michael Feathers — Working Effectively with Legacy Code.**
   https://understandlegacycode.com/blog/key-points-of-working-effectively-with-legacy-code/
 
@@ -448,17 +492,22 @@ específicas deste design. A bibliografia completa está em
   Onde entra: approval tests / golden master tests como
   ferramenta de safety net em brownfield.
 
+#### 2c — Spec-Driven Development
+
 - **Microsoft — Spec-First Approach to AI-Native Engineering.**
   https://developer.microsoft.com/blog/spec-driven-development-ai-native-engineering/
 
   Onde entra: SDD como prática mainstream enterprise em
-  2025-2026. Spec Kit como toolkit de referência.
+  2025-2026. Spec Kit como toolkit de referência. Valida a
+  decisão do harness de tratar SDD como workflow first-class
+  via `archetypes/full-sdd-project.md`.
 
 - **IBM — What is Spec-Driven Development?**
   https://www.ibm.com/think/topics/spec-driven-development
 
   Onde entra: metodologia SDD canônica — spec como source of
   truth, executable specifications, structured workflow.
+  Sustenta o formato das cinco SPEC-NN em `docs/sdd.md`.
 
 - **Allegro Tech Blog — Spec-Driven Development best practices.**
   https://blog.allegro.tech/2026/06/spec-driven-development-best-practices.html
@@ -466,7 +515,7 @@ específicas deste design. A bibliografia completa está em
   Onde entra: "ask for analysis and generation of a task list
   first", "keep tasks small and self-contained", "iterate on
   the spec". Validação prática das recomendações de
-  `docs/sdd.md`.
+  `docs/sdd.md` e do template `task-plan.template.md`.
 
 - **Martin Fowler — Exploring Gen-AI: SDD tools.**
   https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
