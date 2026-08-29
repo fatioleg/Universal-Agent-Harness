@@ -2,7 +2,7 @@
 
 > Meta-arquitetura versionada para configurar o menor harness robusto
 > necessário para cada novo projeto assistido por IA. Legível por
-> Codex, Codex Cloud e Claude Code sem duplicar o núcleo de regras
+> Codex e Claude Code sem duplicar o núcleo de regras
 > entre plataformas.
 
 ## Para que serve
