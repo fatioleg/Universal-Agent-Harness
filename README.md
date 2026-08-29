@@ -340,9 +340,12 @@ demonstrarem regras estáveis e mecanicamente verificáveis
 
 ## Referências da proposta
 
-Estas são as cinco fontes primárias que fundamentam a
-arquitetura. Cada link aponta para a publicação que inspirou
-decisões específicas deste design.
+Estas são as fontes primárias que fundamentam a arquitetura.
+Cada link aponta para a publicação que inspirou decisões
+específicas deste design. A bibliografia completa está em
+`docs/references.md`.
+
+### Camada 1 — Harness, agentes e observabilidade
 
 - **OpenAI — Harness engineering: leveraging Codex in an
   agent-first world.**
@@ -360,7 +363,9 @@ decisões específicas deste design.
   falha recorrente vira patch de harness + sensor de
   regressão + eval. Loop `failure → root cause → harness
   patch → regression sensor → eval`. AGENTS.md por pasta
-  com cada linha ligada a um erro real.
+  com cada linha ligada a um erro real. Brownfield safety:
+  end-of-day agents produzindo relatórios, sem ship
+  unsupervised.
 
 - **Anthropic — Managed agents.**
   https://www.anthropic.com/engineering/managed-agents
@@ -379,17 +384,118 @@ decisões específicas deste design.
   de runtime (during/pipeline/schedule/production).
   `sensors-cli` como referência para `sensor-trend.yaml`.
   Harness templates como bundles reutilizáveis de guides +
-  sensors — origem da ideia de archetypes.
+  sensors — origem da ideia de archetypes. Mutation testing
+  e approved scenarios como sensores avançados.
 
 - **Anthropic — Harness design for long-running apps.**
   https://www.anthropic.com/engineering/harness-design-long-running-apps
 
   Onde entra: context resets vs compaction reavaliados por
   modelo. Handoff artifacts estruturados. Comunicação
-  file-based entre agentes. Sprint contracts. Padr
+  file-based entre agentes. Sprint contracts. Padrão
   generator-evaluator (GAN). Planner + generator + evaluator
   com Playwright. Thresholds duros por critério. "Stress-test
   every harness component" — remover o que ficou obsoleto.
+  Separação entre baseline funcional e melhorias baseadas em
+  modelo.
+
+### Camada 2 — Test discipline e Spec-Driven Development
+
+- **Kent Beck via Martin Fowler — Test-Driven Development.**
+  https://martinfowler.com/bliki/TestDrivenDevelopment.html
+
+  Onde entra: `docs/tdd.md` codifica o ciclo red-green-refactor
+  (Beck) com a ressalva de Fowler que "no é bala de prata" e
+  que o terceiro passo (refactor) é o mais comumente
+  negligenciado.
+
+- **Ham Vocke — The Practical Test Pyramid (Martin Fowler
+  site).**
+  https://martinfowler.com/articles/practical-test-pyramid.html
+
+  Onde entra: shape da pirâmide de testes — unit na base,
+  integration no meio, e2e no topo. Regra "push tests down
+  the pyramid". "Don't test trivial code". "Test observable
+  behavior, not implementation.""
+
+- **LangWatch — The Agent Testing Pyramid (June 2025).**
+  https://langwatch.ai/scenario/best-practices/the-agent-testing-pyramid/
+
+  Onde entra: pirâmide adaptada para LLM-agent systems —
+  deterministic unit tests (base) → evals & optimization
+  (middle) → simulations (peak). Sempre manter unit tests
+  determinísticos do plumbing, mesmo em projetos agent-heavy.
+
+- **Rafal Wilinski — Agentic Evals Pyramid.**
+  https://rwilinski.ai/posts/evals-pyramid/
+
+  Onde entra: ciclo iterativo de unit-test-like evals para
+  iteração rápida + trajectory evals para confiança no
+  workflow.
+
+- **Michael Feathers — Working Effectively with Legacy Code.**
+  https://understandlegacycode.com/blog/key-points-of-working-effectively-with-legacy-code/
+
+  Onde entra: `docs/brownfield.md` codifica o Legacy Code
+  Change Algorithm (identify change points → find seams →
+  break dependencies → write characterization tests →
+  change → refactor), técnicas Sprout / Wrap, e definição
+  de legacy code como "código sem testes".
+
+- **Daedtech — Characterization Tests (Feathers).**
+  https://daedtech.com/characterization-tests/
+
+  Onde entra: approval tests / golden master tests como
+  ferramenta de safety net em brownfield.
+
+- **Microsoft — Spec-First Approach to AI-Native Engineering.**
+  https://developer.microsoft.com/blog/spec-driven-development-ai-native-engineering/
+
+  Onde entra: SDD como prática mainstream enterprise em
+  2025-2026. Spec Kit como toolkit de referência.
+
+- **IBM — What is Spec-Driven Development?**
+  https://www.ibm.com/think/topics/spec-driven-development
+
+  Onde entra: metodologia SDD canônica — spec como source of
+  truth, executable specifications, structured workflow.
+
+- **Allegro Tech Blog — Spec-Driven Development best practices.**
+  https://blog.allegro.tech/2026/06/spec-driven-development-best-practices.html
+
+  Onde entra: "ask for analysis and generation of a task list
+  first", "keep tasks small and self-contained", "iterate on
+  the spec". Validação prática das recomendações de
+  `docs/sdd.md`.
+
+- **Martin Fowler — Exploring Gen-AI: SDD tools.**
+  https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+
+  Onde entra: panorama das ferramentas SDD atuais (Kiro,
+  spec-kit); valida a abordagem do harness como ferramenta
+  canônica.
+
+### Camada 3 — Architecture Decision Records
+
+- **AWS — Master ADRs best practices.**
+  https://aws.amazon.com/blogs/architecture/master-architecture-decision-records-adrs-best-practices-for-effective-decision-making/
+
+  Onde entra: `docs/adr-template.md` segue as recomendações
+  AWS — uma decisão por ADR, log versionado, status
+  rastreável, link para código.
+
+- **Microsoft Azure — Maintain an ADR.**
+  https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record
+
+  Onde entra: ADRs começam no início do workload e continuam
+  ao longo da vida; brownfield também recebe ADRs
+  retroativos para decisões significativas passadas.
+
+- **adr.github.io — Architectural Decision Records.**
+  https://adr.github.io/
+
+  Onde entra: comunidade canônica de ADRs; formato
+  Context/Decision/Consequences é o padrão da indústria.
 
 ## Referências
 
