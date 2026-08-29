@@ -144,6 +144,20 @@ quando você pede para começar um projeto novo. 15 perguntas em
 capacidades, contratos, sensores, schemas, topologia e
 autonomia ficam pré-configurados antes do Bootstrap Report.
 
+**Como ativar a skill em um projeto novo:**
+
+- Claude Code descobre a skill automaticamente em
+  `skills/classify-project/SKILL.md` no workspace. Para projetos
+  novos, adicione este repo como submódulo em `.harness/upstream`
+  ou copie `skills/classify-project/` para `.claude/skills/`.
+- Codex descobre a skill em
+  `.codex/agent-configuration/skills/classify-project/SKILL.md`.
+  Copie ou symlink o diretório para esse caminho no projeto.
+- O `description` no frontmatter da skill lista frases-gatilho
+  ("start a new project", "bootstrap a project", "qual
+  arquitetura de harness") para que o agente carregue a skill
+  sob demanda mesmo sem você nomeá-la.
+
 ### Garantia e observabilidade
 
 - **Sensors computacionais preferidos** sobre LLM-judge
