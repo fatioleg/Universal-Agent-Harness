@@ -260,15 +260,70 @@ demonstrarem regras estáveis e mecanicamente verificáveis
   decisões.
 - Não há expectativa de auditoria ou reprodutibilidade.
 
+## Referências da proposta
+
+Estas são as cinco fontes primárias que fundamentam a
+arquitetura. Cada link aponta para a publicação que inspirou
+decisões específicas deste design.
+
+- **OpenAI — Harness engineering: leveraging Codex in an
+  agent-first world.**
+  https://openai.com/pt-BR/index/harness-engineering/
+
+  Onde entra: AGENTS.md enxuto como mapa, scaffolds
+  reutilizáveis, repositório como system of record, contexto
+  escasso e progressivo, observabilidade acessível ao agente,
+  arquitetura enforceable e controle de entropia.
+
+- **Mitchell Hashimoto — My AI adoption journey.**
+  https://mitchellh.com/writing/my-ai-adoption-journey
+
+  Onde entra: princípio de "engineer the harness". Toda
+  falha recorrente vira patch de harness + sensor de
+  regressão + eval. Loop `failure → root cause → harness
+  patch → regression sensor → eval`. AGENTS.md por pasta
+  com cada linha ligada a um erro real.
+
+- **Anthropic — Managed agents.**
+  https://www.anthropic.com/engineering/managed-agents
+
+  Onde entra: separar session, harness e sandbox. Harness
+  stateless com `wake/getSession`/`emitEvent`/`getEvents`.
+  Tools como `execute(name, input) → string`. Proxies OAuth
+  para credenciais ficarem fora do sandbox. Sandbox
+  provisionado lazy via tool call. Cattle-not-pets.
+
+- **Birgitta Böckeler — Sensors for coding agents.**
+  https://martinfowler.com/articles/sensors-for-coding-agents.html
+
+  Onde entra: taxonomia guides vs sensors, computacional vs
+  inferencial. Preferência por sensor determinístico. Eixos
+  de runtime (during/pipeline/schedule/production).
+  `sensors-cli` como referência para `sensor-trend.yaml`.
+  Harness templates como bundles reutilizáveis de guides +
+  sensors — origem da ideia de archetypes.
+
+- **Anthropic — Harness design for long-running apps.**
+  https://www.anthropic.com/engineering/harness-design-long-running-apps
+
+  Onde entra: context resets vs compaction reavaliados por
+  modelo. Handoff artifacts estruturados. Comunicação
+  file-based entre agentes. Sprint contracts. Padr
+  generator-evaluator (GAN). Planner + generator + evaluator
+  com Playwright. Thresholds duros por critério. "Stress-test
+  every harness component" — remover o que ficou obsoleto.
+
 ## Referências
 
-A bibliografia completa está em `docs/references.md`. Fontes
-primárias que informaram o design:
+A bibliografia completa (fontes primárias, ferramentas
+relacionadas e documentação de plataforma) está em
+`docs/references.md`. Cobre, além das cinco acima:
 
-- OpenAI — Harness engineering (Codex).
-- Anthropic — Managed agents; Harness design for long-running apps.
-- Mitchell Hashimoto — My AI adoption journey.
-- Birgitta Böckeler — Sensors for coding agents (Martin Fowler site).
+- Sensors / ferramentas citadas nos artigos
+  (`sensors-cli`, Modularity Skills, Stryker,
+  dependency-cruiser, ESLint plugin da Factory).
+- Documentação oficial de Codex AGENTS.md, Codex Cloud,
+  Claude Code memory e Claude Code hooks.
 
 ## Licença
 
