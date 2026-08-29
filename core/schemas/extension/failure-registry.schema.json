@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/failure-registry.schema.json",
+  "title": "Failure Registry Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["failure_id", "pattern", "root_cause", "status", "occurred_at"],
+  "properties": {
+    "failure_id": {"type": "string", "pattern": "^FAIL-[0-9]{4,}$"},
+    "pattern": {"type": "string"},
+    "root_cause": {"type": "string"},
+    "harness_patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "modified_files": {"type": "array", "items": {"type": "string"}},
+        "schema_changes": {"type": "array", "items": {"type": "string"}},
+        "new_sensor": {"type": ["string", "null"]},
+        "new_policy": {"type": ["string", "null"]}
+      }
+    },
+    "regression_sensor": {"type": ["string", "null"]},
+    "status": {"enum": ["detected", "analyzing", "patching", "fixed", "monitoring"]},
+    "linked_eval": {"type": ["string", "null"]},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "fixed_at": {"type": ["string", "null"], "format": "date-time"}
+  }
+}

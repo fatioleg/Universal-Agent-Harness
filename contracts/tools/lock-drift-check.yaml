@@ -1,0 +1,22 @@
+tool_id: lock-drift-check
+capability: lock-fidelity
+input_schema: |
+  Path to a project's harness.lock.yaml.
+output_schema: |
+  A pass-or-fail verdict plus the actual current upstream commit
+  versus the pinned commit.
+permissions_required:
+  - read
+  - network
+side_effects: none
+failure_modes:
+  - mode: upstream-unreachable
+    detection: cannot fetch upstream
+    recovery: report and skip the check
+  - mode: pinned-commit-missing
+    detection: pinned commit not found upstream
+    recovery: report and require explicit human decision
+cost_estimate: "negligible"
+latency_estimate: "1-3 s"
+validation_method: "deterministic commit equality"
+eval_status: untested

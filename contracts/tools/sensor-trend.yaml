@@ -1,0 +1,21 @@
+tool_id: sensor-trend
+capability: sensor-trend-aggregation
+input_schema: |
+  Optional sensor ID, optional time range, optional project scope.
+output_schema: |
+  Per-sensor pass/fail counts and trend direction (improving,
+  stable, degrading).
+permissions_required:
+  - read
+side_effects: none
+failure_modes:
+  - mode: no-runs
+    detection: no observability-run records
+    recovery: report zero counts; suggest EVAL-007 to generate a run
+  - mode: malformed-records
+    detection: an observability-run fails schema
+    recovery: report the offender; skip it in the aggregate
+cost_estimate: "negligible"
+latency_estimate: "< 2 s"
+validation_method: "deterministic aggregate"
+eval_status: untested

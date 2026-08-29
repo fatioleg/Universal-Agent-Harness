@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/eval-result.schema.json",
+  "title": "Eval Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eval_id", "category", "expected", "actual", "passed", "harness_version", "timestamp"],
+  "properties": {
+    "eval_id": {"type": "string", "pattern": "^EVAL-[0-9]{3,}$"},
+    "category": {
+      "enum": [
+        "retrieval", "ingestion", "extraction", "numerical-audit",
+        "citation", "artifact-generation", "handoff", "coordination",
+        "conflict-resolution", "recovery", "archetype-specific"
+      ]
+    },
+    "input": {"type": "string"},
+    "expected": {"type": "string"},
+    "actual": {"type": "string"},
+    "passed": {"type": "boolean"},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {"type": "integer", "minimum": 0},
+        "cost": {"type": "number", "minimum": 0},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "tool_failures": {"type": "integer", "minimum": 0},
+        "human_interventions": {"type": "integer", "minimum": 0}
+      }
+    },
+    "harness_version": {"type": "string"},
+    "model_id": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"}
+  }
+}

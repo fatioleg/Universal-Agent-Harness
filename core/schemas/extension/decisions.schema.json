@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/decisions.schema.json",
+  "title": "Decision Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision_id", "title", "context", "decision", "decided_by", "created_at"],
+  "properties": {
+    "decision_id": {"type": "string", "pattern": "^DEC-[0-9]{4,}$"},
+    "title": {"type": "string", "minLength": 1},
+    "context": {"type": "string"},
+    "options_considered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["option"],
+        "properties": {
+          "option": {"type": "string"},
+          "tradeoffs": {"type": "string"}
+        }
+      }
+    },
+    "decision": {"type": "string"},
+    "rationale": {"type": "string"},
+    "decided_by": {"type": "string"},
+    "supersedes": {"type": ["string", "null"]},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

@@ -1,0 +1,50 @@
+schema_version: "0.2"
+invariants:
+  - id: INV-001
+    name: preserve_user_sources
+    statement: Original user sources must not be overwritten, silently transformed, or deleted.
+    enforcement: locked
+  - id: INV-002
+    name: provenance_for_material_claims
+    statement: Material scientific or factual claims must retain an evidence pointer or explicit uncertainty status.
+    enforcement: locked
+  - id: INV-003
+    name: repository_system_of_record
+    statement: Critical state, decisions, and evidence must return to the project workspace in agent-readable form.
+    enforcement: locked
+  - id: INV-004
+    name: no_conversation_memory_authority
+    statement: Conversation history and informal summaries are not authoritative project memory.
+    enforcement: locked
+  - id: INV-005
+    name: least_privilege
+    statement: Effective permissions must be limited to the capabilities required by the approved task.
+    enforcement: locked
+  - id: INV-006
+    name: material_human_gate
+    statement: Scientific, strategic, irreversible, external, publishing, sending, spending, and permission-expansion decisions require an explicit human gate.
+    enforcement: locked
+  - id: INV-007
+    name: progressive_disclosure
+    statement: Load the smallest relevant context and retrieve details only when needed.
+    enforcement: locked
+  - id: INV-008
+    name: deterministic_first
+    statement: Prefer computational verification whenever the property is deterministically testable.
+    enforcement: locked
+  - id: INV-009
+    name: observable_failure
+    statement: Failures, unavailable tools, uncertainty, retries, and incomplete validation must be visible.
+    enforcement: locked
+  - id: INV-010
+    name: no_silent_weakening
+    statement: More specific configuration cannot silently weaken safety, integrity, provenance, or assurance floors.
+    enforcement: locked
+  - id: INV-011
+    name: minimality
+    statement: Infrastructure requires a project requirement, material risk, or observed recurring failure.
+    enforcement: locked
+  - id: INV-012
+    name: bounded_autonomy
+    statement: Autonomy must be explicit per capability and bounded by scope, permissions, validation, retries, and escalation.
+    enforcement: locked

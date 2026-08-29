@@ -1,0 +1,42 @@
+lock_version: "0.2"
+project:
+  id: "replace-with-project-id"
+  title: "Replace with project title"
+
+source_versions:
+  H0: "universal-agent-harness@0.2.0"
+  upstream_commit: "replace-with-full-upstream-commit"
+  H1: []
+  H2: "project.yaml@replace-with-config-hash"
+  H3: null
+
+platforms: [codex]
+classification:
+  lifecycle: "replace-with-lifecycle"
+  domain: ["replace-with-primary-domain"]
+  risk: medium
+  duration: short
+  evidence_burden: standard
+
+capabilities: [discovery, specification]
+topology:
+  level: A
+  label: single-agent-plus-tools
+  justification: "Default topology; replace if the approved report escalates it"
+
+knowledge: {}
+context:
+  strategy: progressive-disclosure
+permissions: {}
+assurance: {}
+generated_files:
+  - path: project.yaml
+    trigger: universal-base
+  - path: harness.lock.yaml
+    trigger: universal-base
+  - path: AGENTS.md
+    trigger: codex-target
+warnings: []
+open_decisions: []
+resolution_hash: "replace-with-resolution-hash"
+

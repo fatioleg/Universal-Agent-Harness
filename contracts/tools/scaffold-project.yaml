@@ -1,0 +1,26 @@
+tool_id: scaffold-project
+capability: project-bootstrap
+input_schema: |
+  Path to a project.yaml, target directory, target agents list.
+output_schema: |
+  A list of files created and their triggers, plus a Bootstrap
+  Report summary.
+permissions_required:
+  - read
+  - write
+side_effects: write
+failure_modes:
+  - mode: input-invalid
+    detection: project.yaml fails project-input.schema.json
+    recovery: report the violation; do not write
+  - mode: human-gate-required
+    detection: project contains material scientific, external, or
+      irreversible decisions
+    recovery: stop and request explicit human approval
+  - mode: target-not-empty
+    detection: target directory already has harness files
+    recovery: report and require explicit overwrite decision
+cost_estimate: "negligible (file writes)"
+latency_estimate: "< 1 s"
+validation_method: "deterministic write + schema validate"
+eval_status: untested

@@ -1,0 +1,79 @@
+schema_version: "0.2"
+
+project:
+  id: plant-oxidative-signaling-review
+  title: Molecular modelling of SOD and CAT in plant oxidative signalling
+  owner: Valter Henrique Carvalho-Silva
+
+objective: >-
+  Map the scientific literature connecting plant oxidative signalling,
+  SOD/CAT structure, molecular modelling, docking, and engineering opportunities.
+
+domain:
+  - plant-physiology
+  - computational-chemistry
+  - molecular-modelling
+
+background: >-
+  The project begins as a literature-grounded study and may later produce a
+  computational protocol. The first phase must not overcommit to a simulation
+  stack before the evidence and structures are assessed.
+
+workspace:
+  path: ./project
+  access: read-write
+  system_of_record: true
+
+target_agents:
+  - codex
+  - codex-cloud
+  - claude-code
+
+inputs: []
+
+deliverables:
+  - id: evidence-map
+    description: Evidence-linked map of mechanisms, proteins, methods, and gaps
+    format: [markdown, csv]
+    acceptance:
+      - Every material claim has a source pointer
+      - DOI and bibliographic metadata are verified
+  - id: modelling-plan
+    description: Staged modelling and validation plan
+    format: [markdown]
+    acceptance:
+      - Assumptions and decision gates are explicit
+
+constraints:
+  - Preserve original sources
+  - Prefer primary literature
+  - Separate evidence from inference
+
+deadline: null
+duration: long-running
+
+risk:
+  scientific: high
+  operational: medium
+  external: low
+  irreversibility: low
+  uncertainty: high
+  cost: medium
+
+evidence_burden: scientific
+
+requested_capabilities:
+  - discovery
+  - scientific-evidence
+  - lexical-retrieval
+  - artifact-production
+  - independent-review
+
+available_tools: []
+external_actions: []
+human_gates:
+  - Approve modelling methodology before computational execution
+  - Approve any paid compute or external publication
+special_requirements:
+  - Use the minimum sufficient agent topology
+language: pt-BR

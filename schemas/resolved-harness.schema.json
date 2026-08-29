@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/resolved-harness.schema.json",
+  "title": "Resolved Project Harness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lock_version", "project", "source_versions", "platforms", "classification",
+    "capabilities", "topology", "knowledge", "context", "permissions",
+    "assurance", "generated_files", "open_decisions", "resolution_hash"
+  ],
+  "properties": {
+    "lock_version": {"const": "0.2"},
+    "project": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {"id": {"type": "string"}, "title": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "source_versions": {
+      "type": "object",
+      "required": ["H0", "upstream_commit"],
+      "properties": {
+        "H0": {"type": "string"},
+        "upstream_commit": {"type": "string", "minLength": 7},
+        "H1": {"type": "array", "items": {"type": "string"}},
+        "H2": {"type": "string"},
+        "H3": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["codex", "codex-cloud", "claude-code", "other"]}
+    },
+    "classification": {
+      "type": "object",
+      "required": ["lifecycle", "risk", "duration", "evidence_burden"],
+      "properties": {
+        "lifecycle": {"type": "string"},
+        "domain": {"type": "array", "items": {"type": "string"}},
+        "risk": {"enum": ["low", "medium", "high", "critical"]},
+        "duration": {"enum": ["one-off", "short", "long-running"]},
+        "evidence_burden": {"enum": ["none", "standard", "scientific", "regulated"]}
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "topology": {
+      "type": "object",
+      "required": ["level", "label", "justification"],
+      "properties": {
+        "level": {"enum": ["A", "B", "C", "D", "E"]},
+        "label": {"type": "string"},
+        "justification": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "knowledge": {"type": "object"},
+    "context": {"type": "object"},
+    "permissions": {"type": "object"},
+    "assurance": {"type": "object"},
+    "generated_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "trigger"],
+        "properties": {"path": {"type": "string"}, "trigger": {"type": "string"}},
+        "additionalProperties": false
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "open_decisions": {"type": "array", "items": {"type": "string"}},
+    "resolution_hash": {"type": "string", "minLength": 16}
+  }
+}

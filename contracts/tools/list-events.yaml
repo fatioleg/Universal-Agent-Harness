@@ -1,0 +1,20 @@
+tool_id: list-events
+capability: state-and-event-reading
+input_schema: |
+  A session or run ID, an optional time range or event-type filter.
+output_schema: |
+  A list of events with timestamps, agents, tool calls, and outcomes.
+permissions_required:
+  - read
+side_effects: none
+failure_modes:
+  - mode: session-not-found
+    detection: no matching session
+    recovery: report and suggest checking session ID
+  - mode: partial-log
+    detection: log truncated or missing events
+    recovery: report and continue with available events
+cost_estimate: "negligible"
+latency_estimate: "< 1 s"
+validation_method: "deterministic read"
+eval_status: untested

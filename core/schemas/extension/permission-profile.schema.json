@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/permission-profile.schema.json",
+  "title": "Permission Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_id", "agent_role", "capabilities", "granted_by"],
+  "properties": {
+    "profile_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$"},
+    "agent_role": {"type": "string"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "read": {"type": "array", "items": {"type": "string"}},
+        "write": {"type": "array", "items": {"type": "string"}},
+        "modify": {"type": "array", "items": {"type": "string"}},
+        "delete": {"type": "boolean"},
+        "execute": {"type": "array", "items": {"type": "string"}},
+        "network": {"enum": ["none", "read", "full"]},
+        "install": {"type": "boolean"},
+        "publish": {"type": "boolean"},
+        "send": {"type": "array", "items": {"type": "string"}},
+        "spend": {"type": "string"},
+        "merge": {"type": "boolean"}
+      }
+    },
+    "duration": {"type": "string"},
+    "granted_by": {"type": "string"}
+  }
+}

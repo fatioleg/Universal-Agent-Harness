@@ -1,0 +1,55 @@
+schema_version: "0.2"
+resolution:
+  expression: resolve(H0, H1, H2, H3)
+  precedence:
+    - H0-universal
+    - H1-profile-overlays-domain-packs
+    - H2-project
+    - H3-task
+  output: harness.lock.yaml
+  deterministic: true
+  record_field_provenance: true
+
+rules:
+  unknown_fields: reject
+  scalars: replace_if_schema_allows
+  maps: recursive_known_keys_only
+  lists: explicit_strategy_required
+  null_values: do_not_delete_parent_value_unless_schema_marks_nullable
+  conflicts: fail_closed_and_report
+
+field_policies:
+  invariants:
+    strategy: locked
+  permissions:
+    strategy: restrict_only
+    expansion: explicit_human_approval
+  assurance_floors:
+    strategy: strengthen_only
+  provenance_floors:
+    strategy: strengthen_only
+  budgets:
+    strategy: minimum
+    expansion: explicit_human_approval
+  capabilities:
+    strategy: set_union
+  validators:
+    strategy: keyed_merge
+    key: id
+  tool_bindings:
+    strategy: keyed_merge
+    key: capability
+  generated_files:
+    strategy: keyed_merge
+    key: path
+  task_context:
+    strategy: replace
+  topology:
+    strategy: replace_with_justification
+
+versioning:
+  universal: semantic-version
+  profiles: semantic-version
+  project_resolution: pinned
+  automatic_upgrades: forbidden
+  migration: diff_validate_relock

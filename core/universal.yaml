@@ -1,0 +1,79 @@
+schema_version: "0.2"
+harness:
+  id: universal-agent-harness
+  version: "0.2.0"
+  mode: cross-platform-declarative-bootstrap
+
+principles:
+  - harness_first_agents_second
+  - universalize_invariants_not_implementations
+  - simplest_sufficient_harness
+  - progressive_disclosure
+  - just_in_time_retrieval
+  - deterministic_first
+  - least_privilege
+  - repository_as_system_of_record
+  - visible_failure_and_recovery
+
+defaults:
+  bootstrap_mode: dry-run
+  target_agents:
+    - codex
+    - claude-code
+  topology:
+    level: A
+    label: single-agent-plus-tools
+  context:
+    strategy: progressive-disclosure
+    preload_entire_repository: false
+  knowledge:
+    level: lexical
+    compression: retrieved-context-only
+    graph: disabled
+    semantic_retrieval: disabled
+  state:
+    persistent_state: conditional
+    session_transcripts_as_memory: false
+  assurance:
+    schema_validation: required
+    deterministic_checks: preferred
+    independent_review: risk-triggered
+    evals: representative-cases
+  permissions:
+    read: allowed-within-scope
+    write: approval-after-dry-run
+    modify_existing: explicit-scope-only
+    delete: denied
+    execute: declared-tools-only
+    network: task-justified
+    install: denied
+    publish: denied
+    send: denied
+    spend: denied
+    merge: denied
+
+capability_vocabulary:
+  - discovery
+  - specification
+  - state-continuity
+  - source-ingestion
+  - normalization
+  - cataloging
+  - lexical-retrieval
+  - semantic-retrieval
+  - graph-retrieval
+  - context-compression
+  - scientific-evidence
+  - computational-execution
+  - data-analysis
+  - artifact-production
+  - independent-review
+  - external-write
+  - publication
+  - long-running-orchestration
+
+references:
+  invariants: invariants.yaml
+  merge_policy: merge-policy.yaml
+  project_input_schema: ../schemas/project-input.schema.json
+  resolved_harness_schema: ../schemas/resolved-harness.schema.json

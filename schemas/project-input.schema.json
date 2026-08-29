@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/project-input.schema.json",
+  "title": "Universal Agent Harness Project Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "objective", "domain", "workspace", "target_agents", "deliverables"],
+  "properties": {
+    "schema_version": {"const": "0.2"},
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$"},
+        "title": {"type": "string", "minLength": 3},
+        "owner": {"type": "string"}
+      }
+    },
+    "objective": {"type": "string", "minLength": 10},
+    "domain": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+    "background": {"type": "string"},
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "access"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "access": {"enum": ["read-only", "read-write"]},
+        "system_of_record": {"type": "boolean", "default": true}
+      }
+    },
+    "target_agents": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["codex", "codex-cloud", "claude-code", "other"]}
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "location", "type"],
+        "properties": {
+          "id": {"type": "string"},
+          "location": {"type": "string"},
+          "type": {"type": "string"},
+          "authoritative": {"type": "boolean", "default": false},
+          "immutable": {"type": "boolean", "default": true}
+        }
+      }
+    },
+    "deliverables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": {"type": "string"},
+          "description": {"type": "string", "minLength": 3},
+          "format": {"type": "array", "items": {"type": "string"}},
+          "acceptance": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "deadline": {"type": ["string", "null"], "format": "date-time"},
+    "duration": {"enum": ["one-off", "short", "long-running"]},
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scientific": {"$ref": "#/$defs/riskLevel"},
+        "operational": {"$ref": "#/$defs/riskLevel"},
+        "external": {"$ref": "#/$defs/riskLevel"},
+        "irreversibility": {"$ref": "#/$defs/riskLevel"},
+        "uncertainty": {"$ref": "#/$defs/riskLevel"},
+        "cost": {"$ref": "#/$defs/riskLevel"}
+      }
+    },
+    "evidence_burden": {"enum": ["none", "standard", "scientific", "regulated"]},
+    "requested_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "available_tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "external_actions": {"type": "array", "items": {"type": "string"}},
+    "human_gates": {"type": "array", "items": {"type": "string"}},
+    "special_requirements": {"type": "array", "items": {"type": "string"}},
+    "language": {"type": "string", "default": "pt-BR"}
+  },
+  "$defs": {
+    "riskLevel": {"enum": ["low", "medium", "high", "critical"]}
+  }
+}

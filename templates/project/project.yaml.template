@@ -1,0 +1,44 @@
+schema_version: "0.2"
+project:
+  id: "replace-with-project-id"
+  title: "Replace with project title"
+  owner: "Replace with project owner"
+
+objective: "Replace with the accepted project objective"
+domain:
+  - "replace-with-primary-domain"
+background: "Replace with known background or an explicit UNKNOWN"
+
+workspace:
+  path: "."
+  access: "read-write"
+  system_of_record: true
+
+target_agents:
+  - codex
+
+inputs: []
+deliverables:
+  - id: primary-deliverable
+    description: "Replace with the accepted deliverable"
+    format: [markdown]
+    acceptance: []
+
+constraints: []
+deadline: null
+duration: short
+risk:
+  scientific: medium
+  operational: medium
+  external: low
+  irreversibility: low
+  uncertainty: medium
+  cost: low
+evidence_burden: standard
+requested_capabilities: [discovery, specification]
+available_tools: []
+external_actions: []
+human_gates: []
+special_requirements: []
+language: pt-BR
+

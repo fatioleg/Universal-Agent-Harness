@@ -1,0 +1,13 @@
+# Claude Code project entrypoint
+
+This file is generated from an approved Universal Agent Harness Bootstrap Report.
+
+1. Read `project.yaml` for project intent and accepted deliverables.
+2. Read `harness.lock.yaml` for effective permissions, topology, capabilities,
+   assurance, upstream version, and open gates.
+3. Read only the task-relevant state, specification, evidence, and source files.
+4. Follow locked invariants and stop on unresolved material gates.
+
+Auto memory is not authoritative project state. Update the workspace artifacts
+selected in the lock after material progress.
+

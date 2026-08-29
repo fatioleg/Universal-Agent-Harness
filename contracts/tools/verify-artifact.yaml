@@ -1,0 +1,22 @@
+tool_id: verify-artifact
+capability: artifact-verification
+input_schema: |
+  Path to an artifact, list of sensor IDs to apply, acceptance
+  criteria.
+output_schema: |
+  A per-sensor pass/fail report plus an overall verdict.
+permissions_required:
+  - read
+  - execute
+side_effects: none
+failure_modes:
+  - mode: sensor-unavailable
+    detection: a sensor ID is not bound
+    recovery: report and skip the missing sensor
+  - mode: sensor-error
+    detection: a sensor throws
+    recovery: report; do not retry silently
+cost_estimate: "depends on sensors"
+latency_estimate: "depends on sensors"
+validation_method: "configurable sensor profile"
+eval_status: untested

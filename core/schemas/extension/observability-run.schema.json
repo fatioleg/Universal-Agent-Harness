@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.myharness/schemas/extension/observability-run.schema.json",
+  "title": "Observability Run Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "task_id", "agent_id", "harness_version", "started_at", "final_status"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "agent_id": {"type": "string"},
+    "model_id": {"type": "string"},
+    "harness_version": {"type": "string"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": ["string", "null"], "format": "date-time"},
+    "tools_used": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "inputs_hash": {"type": "string"},
+    "outputs_hash": {"type": "string"},
+    "tokens_in": {"type": "integer", "minimum": 0},
+    "tokens_out": {"type": "integer", "minimum": 0},
+    "cost": {"type": "number", "minimum": 0},
+    "compute_seconds": {"type": "number", "minimum": 0},
+    "retries": {"type": "integer", "minimum": 0},
+    "sensor_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sensor_id", "result"],
+        "properties": {
+          "sensor_id": {"type": "string"},
+          "result": {"type": "string"}
+        }
+      }
+    },
+    "failures": {"type": "array", "items": {"type": "string"}},
+    "final_status": {"enum": ["success", "failed", "escalated", "partial"]}
+  }
+}

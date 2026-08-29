@@ -1,0 +1,22 @@
+tool_id: diff-harness
+capability: migration-difference
+input_schema: |
+  Two upstream version+commit tuples (current, target).
+output_schema: |
+  A list of changed files, changed invariant statements, and changed
+  field policies from core/merge-policy.yaml.
+permissions_required:
+  - read
+  - network
+side_effects: none
+failure_modes:
+  - mode: upstream-unreachable
+    detection: cannot fetch target upstream commit
+    recovery: report and suggest checking upstream URL
+  - mode: parse-failure
+    detection: target YAML/JSON fails to parse
+    recovery: report and stop migration
+cost_estimate: "negligible"
+latency_estimate: "1-5 s"
+validation_method: "deterministic diff"
+eval_status: untested

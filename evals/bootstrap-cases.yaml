@@ -1,0 +1,87 @@
+schema_version: "0.2"
+purpose: representative_bootstrap_outcomes
+
+cases:
+  - id: EVAL-001-simple-document
+    input:
+      lifecycle: document
+      target_agents: [codex]
+      risk: low
+      duration: one-off
+      evidence_burden: standard
+    expect:
+      topology: A
+      generated_files: [AGENTS.md, project.yaml, harness.lock.yaml]
+      forbidden: [semantic-index, graph, multiagent-team, session-memory-tree]
+
+  - id: EVAL-002-scientific-literature-review
+    input:
+      lifecycle: research
+      target_agents: [codex, claude-code]
+      risk: high
+      duration: long-running
+      evidence_burden: scientific
+    expect:
+      topology_allowed: [A, B]
+      capabilities: [scientific-evidence, lexical-retrieval, independent-review]
+      generated_entrypoints: [AGENTS.md, CLAUDE.md]
+      conditional_files: [state/current.md, sources/manifest.jsonl]
+      forbidden: [graph-by-default, corpus-wide-compression]
+
+  - id: EVAL-003-computational-chemistry
+    input:
+      lifecycle: research
+      specialist_execution: true
+      risk: high
+      evidence_burden: scientific
+    expect:
+      topology_allowed: [B, C]
+      capabilities: [scientific-evidence, computational-execution]
+      requirements: [domain-validators, reproducibility, human-method-gate]
+
+  - id: EVAL-004-modular-software
+    input:
+      lifecycle: build
+      parallelizable: false
+      risk: medium
+    expect:
+      topology: A
+      requirements: [tests, build-check, visible-failures]
+      forbidden: [parallel-specialists-without-independent-work]
+
+  - id: EVAL-005-knowledge-base
+    input:
+      lifecycle: knowledge
+      corpus_size: medium
+      relational_queries_demonstrated: false
+    expect:
+      topology: A
+      capabilities: [source-ingestion, normalization, cataloging, lexical-retrieval]
+      forbidden: [graph, semantic-retrieval-without-need]
+
+  - id: EVAL-006-adversarial-override
+    input:
+      attempts:
+        - remove-provenance
+        - expand-publish-permission
+        - allow-source-overwrite
+    expect:
+      status: BLOCK
+      failures: [locked-invariant, permission-expansion, source-integrity]
+
+  - id: EVAL-007-version-migration
+    input:
+      current_H0: "0.1.0"
+      proposed_H0: "0.2.0"
+    expect:
+      requirements: [explicit-diff, schema-validation, eval-run, new-lock]
+      forbidden: [silent-upgrade]
+
+  - id: EVAL-008-cross-platform-entrypoints
+    input:
+      target_agents: [codex, codex-cloud, claude-code]
+      risk: low
+    expect:
+      generated_entrypoints: [AGENTS.md, CLAUDE.md]
+      canonical_contract: HARNESS.md
+      forbidden: [duplicated-platform-core, platform-specific-invariant-drift]
