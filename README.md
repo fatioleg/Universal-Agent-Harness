@@ -259,6 +259,159 @@ Mais três templates:
 trivial / pequeno / médio / grande / complexo-crítico e
 ativar somente o que a classe de risco exige.
 
+### Infraestrutura operacional e governança
+
+O harness expõe uma série de artefatos de governança que
+operacionalizam as práticas acima. Eles já existem no repo;
+este README serve como índice.
+
+**Contrato operacional canônico (`HARNESS.md`).** Define
+a state machine de bootstrap:
+
+```text
+INITIAL → DISCOVERED → PROPOSED → APPROVED → MATERIALIZED → VALIDATED
+```
+
+Todo projeto novo começa em dry-run. A passagem
+`PROPOSED → MATERIALIZED` requer aprovação humana quando a
+proposta contém decisões científicas, estratégicas,
+externas, irreversíveis, de permissão, publicação ou custo.
+
+**Recovery loop.** Documentado em `HARNESS.md` §Recovery:
+
+```text
+PLAN → PRECHECK → EXECUTE → OBSERVE → SENSE
+                                    ├─ PASS → COMMIT
+                                    └─ FAIL → CLASSIFY
+                                                ├─ REPAIR → REVALIDATE
+                                                └─ ROLLBACK / ESCALATE
+```
+
+Agentes não terminam em PASS/FAIL silencioso. Falhas viram
+entradas no `failure-registry.schema.json`; correções viram
+sensores de regressão.
+
+**Bootstrap Report.** Ao final do dry-run, o agente produz um
+relatório de 12 seções cobrindo entendimento, inventário,
+classificação, capabilities selecionadas, resolução H0-H3,
+topologia, knowledge/estratégia de contexto, permissões e
+gates, validação/QA/eval/observability/recovery, lista exata
+de arquivos a criar com seus triggers, avisos, blockers e
+recomendação final (`APPROVE`, `REVISE` ou `BLOCK`). Detalhes
+em `bootstrap/BOOTSTRAP.md` §10.
+
+**NEW-PROJECT.md.** Template de prompt inicial pronto para
+Codex ou Claude Code. Define a estrutura de declaração que o
+agente recebe, incluindo o pedido de referenciar o upstream
+harness por URL/tag/commit pinados. Não copiar o repo;
+apontar para ele.
+
+**Templates mínimos para projetos gerados.** Todo projeto
+novo criado via bootstrap recebe pelo menos:
+
+- `AGENTS.md` — entrypoint para Codex / Codex Cloud.
+- `CLAUDE.md` — entrypoint para Claude Code.
+- `project.yaml` — input canônico do projeto, validado contra
+  `schemas/project-input.schema.json`.
+- `harness.lock.yaml` — pin do upstream commit + capabilities
+  resolvidas + permissões + topologia + assurance.
+
+Ambos entrypoints de plataforma são gerados apenas quando o
+projeto declara a plataforma correspondente como alvo.
+
+**Resolução tipada H0-H3 (`core/merge-policy.yaml`).** O
+harness usa um mecanismo de merge **typed**, não concat
+de strings:
+
+- **H0** — universal invariants, defaults, schemas.
+- **H1** — lifecycle profile opcional, capability overlays,
+  domain packs.
+- **H2** — configuração e bindings do projeto.
+- **H3** — restrições de curta duração para uma task.
+
+Regras: campos desconhecidos são rejeitados; permissões podem
+ser restringidas mas não expandidas silenciosamente; assurance
+floors só podem ser fortalecidos; conflitos falham fechados.
+
+**Quatro planos de responsabilidade.** Documentados em
+`docs/ARCHITECTURE.md` como lenses, não como serviços
+obrigatórios:
+
+- **Control** — intent, specification, routing, permissions,
+  budgets, gates, state transitions.
+- **Knowledge** — sources, representations, retrieval,
+  context assembly, evidence, provenance.
+- **Execution** — agents, models, skills, tools, code,
+  compute, external services.
+- **Assurance** — guides, sensors, validators, evals,
+  observability, review, recovery.
+
+`Assurance` observa os outros três. Um projeto pequeno pode
+ter um Knowledge Plane trivial e nenhum orchestration service.
+
+**Capability vocabulary.** 18 capabilities declaradas em
+`core/universal.yaml` e selecionáveis via Bootstrap Report.
+Exemplos: `discovery`, `specification`, `state-continuity`,
+`source-ingestion`, `normalization`, `cataloging`,
+`lexical-retrieval`, `semantic-retrieval`, `graph-retrieval`,
+`context-compression`, `scientific-evidence`,
+`computational-execution`, `data-analysis`,
+`artifact-production`, `independent-review`, `external-write`,
+`publication`, `long-running-orchestration`. Cada capability
+aciona capacidades concretas no harness.
+
+**Defaults universais.** Conservadores por design: `delete`,
+`install`, `publish`, `send`, `spend`, `merge` são
+`denied` por padrão. `read` é `allowed-within-scope`,
+`network` é `task-justified`. Expansões acima do default
+requerem human gate explícito.
+
+**Platform-specific docs.** Comportamento de discovery
+documentado por plataforma:
+
+- `platforms/CODEX.md` — Codex e Codex Cloud (instruction chain
+  AGENTS.md, override por pasta, ambiente isolado do Cloud).
+- `platforms/CLAUDE-CODE.md` — Claude Code (CLAUDE.md,
+  `.claude/rules/`, auto memory como conveniência local
+  apenas).
+
+**Override protocol.** `core/policies/override-protocol.md`
+define quando princípios podem ser desviados, quais não, e o
+que registrar quando o desvio é necessário. Três princípios
+não podem ser desviados (preserve-sources, maintain-
+provenance, expose-failures); os outros seis podem via
+protocolo explícito.
+
+**Failure registry.** Toda falha recorrente é registrada em
+`core/schemas/extension/failure-registry.schema.json` com
+`pattern`, `root_cause`, `harness_patch`, `regression_sensor`,
+`status` e `linked_eval`. Falhas que se tornam sistêmicas
+promovem o harness; falhas locais não.
+
+**Glossário.** `docs/glossary.md` define harness, archetype,
+sensor (computacional vs inferencial), guide, evidence
+ledger, claim, provenance, H0-H3, lock file, Bootstrap Report,
+tool contract, validation vs QA vs eval, permission profile,
+material gate. ~80 linhas, ponto de entrada para vocabulário.
+
+**Architecture Decision Records.** `docs/DECISIONS.md`
+registra AD-001 a AD-012 (criação inicial, H1 composition,
+v0.1.0 scope, state and memory, permissions, language,
+pilot order, cross-platform entrypoints, v0.3.0 scope,
+v0.4.0 scope, v0.5.0 scope). Cada AD registra uma decisão
+que de outro modo ficaria implícita no código.
+
+**Exemplos.** `examples/` é placeholder intencional para um
+worked example end-to-end. A entrada do primeiro exemplo é
+adiada até que pelo menos um projeto real tenha sido
+bootstrapped via protocolo (AD-003).
+
+**Validador.** `scripts/validate_repo.py` valida schemas,
+YAML, IDs únicos de invariantes e evals, exemplo de entrada,
+tamanho dos entrypoints, e roteamento de referências. Roda
+localmente e em CI (`scripts/validate_repo.py` em GitHub
+Actions).
+
 **Como ativar a skill em um projeto novo:**
 
 - Claude Code descobre a skill automaticamente em
