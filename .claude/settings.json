@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "spec-to-code-compliance@trailofbits": true
+  }
+}

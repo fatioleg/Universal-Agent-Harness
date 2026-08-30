@@ -108,7 +108,7 @@ agent reading the repo top-down finds it.
   with respect to the project workspace.
 - **Do not produce a Bootstrap Report yet.** That comes after the
   human accepts the classification.
-- **One question at a time.** Do not dump all 15 questions.
+- **One question at a time.** Do not dump all 24 questions.
 - **Allow UNKNOWN.** Some questions may legitimately be unknown
   at classification time. Record UNKNOWN in the output rather than
   guess.

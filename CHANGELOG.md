@@ -47,6 +47,25 @@
 - updated `docs/references.md` with primary sources for TDD, test pyramid, brownfield, SDD enterprise practice, and ADRs;
 - documented AD-012 recording the v0.5.0 scope.
 
+## 0.5.1 — 2026-08-29
+
+- added `docs/assets/harness-analogy.png` illustrating the
+  energy-vs-intelligence parallel that motivates the harness
+  concept, surfaced in `README.md` directly under the title;
+- expanded `skills/classify-project/` from 15 to 24 questions
+  across 6 groups, covering all 11 archetypes, 22 capabilities,
+  12 tool contracts, and 11 schemas. Skill description and
+  coverage section updated;
+- fixed `eval-result` schema trigger missing from
+  decision-tree.md (any project with running evals);
+- deduped `AD-009` in `docs/DECISIONS.md` (renamed GitHub
+  distribution decision to AD-013);
+- heavy 3-pass audit (validator + static checks + spec-to-code
+  compliance) executed; report at
+  `docs/superpowers/audits/2026-08-29-v050-audit.md`. Result:
+  PASS-WITH-NOTES, 0 critical, 0 important, 6 minor all
+  AD-documented.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

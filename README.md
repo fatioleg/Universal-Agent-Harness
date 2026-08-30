@@ -5,6 +5,8 @@
 > Codex e Claude Code sem duplicar o núcleo de regras
 > entre plataformas.
 
+![Harness analogy — machines operationalize energy; harnesses operationalize intelligence](./docs/assets/harness-analogy.png)
+
 ## Para que serve
 
 Este repositório é um **bootstrap de harness** — uma infraestrutura
