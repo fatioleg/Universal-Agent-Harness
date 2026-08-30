@@ -155,7 +155,7 @@
   mainstream-industry support. AD-012 records the v0.5.0 scope and
   the explicit citation of primary sources in `docs/references.md`.
 
-## AD-009 — GitHub distribution model
+## AD-013 — GitHub distribution model
 
 - Status: accepted
 - Date: 2026-08-29

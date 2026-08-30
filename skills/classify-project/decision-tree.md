@@ -113,6 +113,7 @@ Schemas live in `core/schemas/extension/`. Instantiate per:
 | Q18 = d or e | `acceptance-criterion`, `test-case` |
 | Q20 = b | `change-request` |
 | Q21 ≥ c | `tool-contract` (for any agent-invokable tools) |
+| Any project with running evals | `eval-result` (records per-eval outcomes) |
 
 ## Agent topology
 
