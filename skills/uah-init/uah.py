@@ -9,6 +9,8 @@ Comandos:
   task         define o contexto H3 da tarefa (concessões temporárias limitadas a `grantable`)
   checkpoint   atualiza state/current.md (gate G4)
   preflight    verifica política, hooks, plano, estado, git e versões antes de retomar
+  explain      mostra, em linguagem simples, as regras efetivas e de que camada vêm
+  integrations lista/instala/ativa ferramentas externas do fluxo (workflow-digestion, specboard, calcboard)
 
 Regras de resolução (typed merge, fail-closed):
   - listas de deny/ask/imutáveis só crescem; nenhuma camada remove o que a superior definiu;
@@ -21,6 +23,7 @@ Regras de resolução (typed merge, fail-closed):
 from __future__ import annotations
 
 import argparse
+import difflib
 import datetime as _dt
 import hashlib
 import json
@@ -37,7 +40,7 @@ except ImportError:  # pragma: no cover - mensagem para o operador
     print("UAH-lite precisa de PyYAML: python3 -m pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-UAH_LITE_VERSION = "0.6.0"
+UAH_LITE_VERSION = "0.7.0"
 HERE = Path(__file__).resolve().parent
 RISKS = ("low", "medium", "high")
 G4_ORDER = {"off": 0, "block": 1}
@@ -46,7 +49,10 @@ GUARD_REL = ".uah/hooks/uah_guard.py"
 HOOK_MATCHER = "Bash|Edit|Write|MultiEdit|NotebookEdit"
 MAX_GRANT_HOURS = 24 * 7
 
-H2_TOP_KEYS = {"uah_lite", "project", "risk", "runtime", "policy", "notes"}
+H2_TOP_KEYS = {"uah_lite", "project", "risk", "runtime", "integrations", "policy", "notes"}
+PROJECT_KEYS = {"id", "title", "domains"}
+RUNTIME_KEYS = {"python"}
+INTEGRATION_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask", "plan_gate_paths", "gate_cli"}
 H2_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask", "settings_allow",
                   "settings_ask", "settings_deny", "grantable", "plan_gate", "g4_checkpoint"}
 H3_KEYS = {"task_id", "expires_at", "grants", "policy", "note"}
@@ -164,6 +170,17 @@ def _expect(cond: bool, msg: str) -> None:
         raise PolicyError(msg)
 
 
+def _unknown(found, allowed: set, where: str) -> None:
+    """Campo desconhecido -> erro com sugestão da grafia mais próxima."""
+    unknown = sorted(set(found) - allowed)
+    if unknown:
+        hints = []
+        for key in unknown:
+            close = difflib.get_close_matches(str(key), sorted(allowed), n=1, cutoff=0.6)
+            hints.append(f"{key!r}" + (f" (quis dizer {close[0]!r}?)" if close else ""))
+        raise PolicyError(f"{where}: campo(s) desconhecido(s) {', '.join(hints)}; válidos: {', '.join(sorted(allowed))}")
+
+
 def _str_list(value, where: str) -> list[str]:
     _expect(isinstance(value, list) and all(isinstance(v, str) and v for v in value),
             f"{where}: esperado lista de strings")
@@ -231,16 +248,26 @@ def load_h2(root: Path) -> dict:
     _expect(path.is_file(), "project.yaml não encontrado (rode init)")
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     _expect(isinstance(data, dict), "project.yaml: esperado mapeamento")
-    unknown = set(data) - H2_TOP_KEYS
-    _expect(not unknown, f"project.yaml: campos desconhecidos {sorted(unknown)}")
-    _expect(data.get("risk") in RISKS, f"project.yaml: risk deve ser um de {RISKS}")
+    _unknown(data, H2_TOP_KEYS, "project.yaml")
+    _expect(data.get("risk") in RISKS, f"project.yaml: risk deve ser um de {', '.join(RISKS)} (atual: {data.get('risk')!r})")
     project = data.get("project") or {}
     _expect(isinstance(project, dict) and isinstance(project.get("id"), str) and project["id"],
             "project.yaml: project.id obrigatório")
+    _unknown(project, PROJECT_KEYS, "project.yaml → project")
+    if project.get("domains") is not None:
+        _expect(isinstance(project["domains"], list), "project.yaml → project.domains: esperado lista")
+        if project["domains"]:
+            _str_list(project["domains"], "project.yaml → project.domains")
+    runtime = data.get("runtime") or {}
+    _expect(isinstance(runtime, dict), "project.yaml: runtime deve ser mapeamento")
+    _unknown(runtime, RUNTIME_KEYS, "project.yaml → runtime")
+    integrations = data.get("integrations")
+    _expect(integrations is None or isinstance(integrations, list), "project.yaml → integrations: esperado lista")
+    if integrations:
+        _str_list(integrations, "project.yaml → integrations")
     policy = data.get("policy") or {}
     _expect(isinstance(policy, dict), "project.yaml: policy deve ser mapeamento")
-    unknown = set(policy) - H2_POLICY_KEYS
-    _expect(not unknown, f"project.yaml: policy com campos desconhecidos {sorted(unknown)}")
+    _unknown(policy, H2_POLICY_KEYS, "project.yaml → policy")
     return data
 
 
@@ -250,13 +277,61 @@ def load_h3(root: Path) -> dict | None:
         return None
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     _expect(isinstance(data, dict), ".uah/task.yaml: esperado mapeamento")
-    unknown = set(data) - H3_KEYS
-    _expect(not unknown, f".uah/task.yaml: campos desconhecidos {sorted(unknown)}")
+    _unknown(data, H3_KEYS, ".uah/task.yaml")
     policy = data.get("policy") or {}
     _expect(isinstance(policy, dict), ".uah/task.yaml: policy deve ser mapeamento")
-    unknown = set(policy) - H3_POLICY_KEYS
-    _expect(not unknown, f".uah/task.yaml: H3 só pode restringir; campos não permitidos {sorted(unknown)}")
+    _unknown(policy, H3_POLICY_KEYS, ".uah/task.yaml → policy (H3 só pode restringir)")
     return data
+
+
+# ----------------------------------------------------------- integrations
+
+def catalog(root: Path) -> dict[str, dict]:
+    """Catálogo de integrações fixado no projeto (.uah/integrations) ou o da skill."""
+    out = {}
+    for base in (HERE / "integrations", runtime_dir(root) / "integrations"):
+        if base.is_dir():
+            for path in sorted(base.glob("*.json")):
+                data = read_json(path)
+                if isinstance(data, dict) and data.get("id"):
+                    out[data["id"]] = data
+    return out
+
+
+def skills_dir() -> Path:
+    return Path.home() / ".claude" / "skills"
+
+
+def find_skill(skill_name: str) -> Path | None:
+    """Pasta da skill instalada cujo SKILL.md declara `name: <skill_name>`."""
+    base = skills_dir()
+    if not base.is_dir():
+        return None
+    for skill_md in sorted(base.glob("*/SKILL.md")):
+        try:
+            head = skill_md.read_text(encoding="utf-8")[:2000]
+        except (OSError, ValueError):
+            continue
+        if re.search(rf"(?m)^name:\s*['\"]?{re.escape(skill_name)}['\"]?\s*$", head):
+            return skill_md.parent
+    return None
+
+
+def integration_status(entry: dict) -> dict:
+    path = find_skill(entry["skill_name"])
+    commit = None
+    if path is not None:
+        commit = run(["git", "-C", str(Path(os.path.realpath(path))), "rev-parse", "--short=12", "HEAD"])
+    return {"installed": path is not None, "path": str(path) if path else None, "commit": commit}
+
+
+def _integration_overlay(entry: dict) -> dict:
+    policy = entry.get("policy") or {}
+    _unknown(policy, INTEGRATION_POLICY_KEYS, f"integração {entry['id']}")
+    for item in policy.get("gate_cli", []):
+        _expect(isinstance(item, dict) and isinstance(item.get("script"), str)
+                and isinstance(item.get("subcommands"), list), f"integração {entry['id']}: gate_cli inválido")
+    return policy
 
 
 def resolve(root: Path) -> dict:
@@ -282,6 +357,8 @@ def resolve(root: Path) -> dict:
         "readonly_bash": _str_list(h0.get("readonly_bash", []), "H0.readonly_bash"),
         "readonly_bash_subcommands": h0.get("readonly_bash_subcommands", {}),
         "g4_checkpoint": "off",
+        "gate_cli": [],
+        "integrations": [],
         "temporary_grants": [],
         "task": None,
     }
@@ -307,6 +384,29 @@ def resolve(root: Path) -> dict:
         _expect(g4 in G4_ORDER, f"{layer}.g4_checkpoint inválido")
         if G4_ORDER[g4] > G4_ORDER[resolved["g4_checkpoint"]]:
             resolved["g4_checkpoint"] = g4
+
+    # Integrações ativas (catálogo confiável, nível H1): só acrescentam restrições,
+    # caminhos de planejamento e CLIs de planejamento/leitura liberados antes da aprovação.
+    known = catalog(root)
+    enabled = list(dict.fromkeys(h2.get("integrations") or []))
+    for iid in enabled:
+        if iid not in known:
+            close = difflib.get_close_matches(iid, sorted(known), n=1, cutoff=0.5)
+            raise PolicyError(f"project.yaml → integrations: {iid!r} não está no catálogo"
+                              + (f" (quis dizer {close[0]!r}?)" if close else "")
+                              + f"; disponíveis: {', '.join(sorted(known)) or 'nenhuma'}")
+        entry = known[iid]
+        overlay = _integration_overlay(entry)
+        layer = f"INT:{iid}"
+        add_unique(resolved["immutable_paths"], _paths(overlay.get("immutable_paths", []), f"{layer}.immutable_paths"))
+        add_unique(resolved["protected_paths"], _paths(overlay.get("protected_paths", []), f"{layer}.protected_paths"))
+        add_unique(resolved["bash_deny"], _rules(overlay.get("bash_deny", []), f"{layer}.bash_deny", "H1"), "id")
+        add_unique(resolved["bash_ask"], _rules(overlay.get("bash_ask", []), f"{layer}.bash_ask", "H1"), "id")
+        add_unique(resolved["plan_gate_paths"], _str_list(overlay.get("plan_gate_paths", []), f"{layer}.plan_gate_paths"))
+        for item in overlay.get("gate_cli", []):
+            resolved["gate_cli"].append({"integration": iid, "script": item["script"],
+                                         "subcommands": list(item["subcommands"])})
+        resolved["integrations"].append({k: entry.get(k) for k in ("id", "title", "skill_name", "stage", "when", "how", "repo")})
 
     upper_deny = list(resolved["bash_deny"])
     upper_ask = list(resolved["bash_ask"])
@@ -386,6 +486,9 @@ def resolve(root: Path) -> dict:
     }
     resolved["python"] = (h2.get("runtime") or {}).get("python", "python3")
     resolved["resolution_hash"] = sha256_bytes(canonical(resolved))
+    # Situação da instalação depende da máquina: fica fora do hash.
+    for item in resolved["integrations"]:
+        item.update(integration_status(known[item["id"]]))
     return resolved
 
 
@@ -468,6 +571,9 @@ def cmd_compile(root: Path, quiet: bool = False) -> dict:
         print(f"compile: risco {policy['risk']} · gate G1 {'on' if policy['plan_gate'] else 'off'} · "
               f"G4 {policy['g4_checkpoint']} · {len(policy['bash_deny'])} deny / {len(policy['bash_ask'])} ask · "
               f"{len(policy['temporary_grants'])} concessões H3 · hash {policy['resolution_hash'][:12]}")
+        for item in policy["integrations"]:
+            state = "instalada" if item["installed"] else "NÃO INSTALADA → python3 .uah/uah.py integrations install " + item["id"]
+            print(f"  integração {item['id']}: {state}")
     return policy
 
 
@@ -494,7 +600,7 @@ def vendor_runtime(root: Path) -> None:
     dest = runtime_dir(root)
     if HERE.resolve() == dest.resolve():
         return
-    for sub in ("profiles", "templates", "hooks"):
+    for sub in ("profiles", "templates", "hooks", "integrations"):
         (dest / sub).mkdir(parents=True, exist_ok=True)
         for item in (HERE / sub).iterdir():
             if item.is_file():
@@ -526,11 +632,17 @@ def record_versions(root: Path) -> dict:
     return versions
 
 
-def cmd_init(root: Path, project_id: str | None, title: str | None, risk: str, python_cmd: str) -> None:
+def cmd_init(root: Path, project_id: str | None, title: str | None, risk: str, python_cmd: str,
+             domains: list[str] | None = None, integrations: list[str] | None = None) -> None:
     root.mkdir(parents=True, exist_ok=True)
     project_id = project_id or re.sub(r"[^a-z0-9-]+", "-", root.name.lower()).strip("-") or "projeto"
+    known = catalog(root)
+    for iid in integrations or []:
+        _expect(iid in known, f"integração desconhecida {iid!r}; disponíveis: {', '.join(sorted(known))}")
     values = {"project_id": project_id, "title": title or root.name, "risk": risk,
               "python": python_cmd, "now": now_iso()}
+    list_values = {"domains": json.dumps(domains or [], ensure_ascii=False),
+                   "integrations": json.dumps(integrations or [], ensure_ascii=False)}
     vendor_runtime(root)
     tpl = source_dir(root) / "templates"
     created = []
@@ -541,7 +653,10 @@ def cmd_init(root: Path, project_id: str | None, title: str | None, risk: str, p
             created.append(f"{rel} (mantido)")
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(render((tpl / name).read_text(encoding="utf-8"), values), encoding="utf-8")
+        text = render((tpl / name).read_text(encoding="utf-8"), values)
+        for key, value in list_values.items():
+            text = text.replace("{{" + key + "_list}}", value)
+        target.write_text(text, encoding="utf-8")
         created.append(f"{rel} (criado)")
     try:
         h2 = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
@@ -559,8 +674,155 @@ def cmd_init(root: Path, project_id: str | None, title: str | None, risk: str, p
     print(f"  - .uah/ (runtime, política {policy['resolution_hash'][:12]}) · .claude/settings.json (hooks + permissões)")
     print(f"  claude={versions['claude_code']} · omc={versions['omc']}")
     print(f"Risco {policy['risk']}: gate G1 {'ATIVO — aprove o plano antes de alterar arquivos' if policy['plan_gate'] else 'desligado'}.")
+    for item in policy["integrations"]:
+        print(f"  integração {item['id']}: {'instalada' if item['installed'] else 'NÃO INSTALADA (uah.py integrations install ' + item['id'] + ')'}")
+    recs = [e["id"] for e in recommend(root, policy) if e["id"] not in {i["id"] for i in policy["integrations"]}]
+    if recs:
+        print(f"Sugestão: para este tipo de projeto, considere `uah.py integrations enable {' '.join(recs)}`.")
     if not (root / ".git").exists():
         print("Aviso: projeto sem git. Estado canônico e retomada entre máquinas pressupõem `git init` + remoto.")
+
+
+RISK_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
+def recommend(root: Path, policy: dict | None = None) -> list[dict]:
+    """Integrações cujo domínio casa com project.domains e cujo risco mínimo é atendido."""
+    try:
+        h2 = load_h2(root)
+    except (PolicyError, yaml.YAMLError):
+        return []
+    domains = {d.lower() for d in ((h2.get("project") or {}).get("domains") or [])}
+    risk = h2.get("risk", "low")
+    out = []
+    for entry in catalog(root).values():
+        if RISK_RANK.get(entry.get("risk_min", "low"), 0) > RISK_RANK.get(risk, 0):
+            continue
+        if domains & {d.lower() for d in entry.get("domains", [])}:
+            out.append(entry)
+    return out
+
+
+INTEGRATIONS_LINE = re.compile(r"(?m)^integrations:[^\n]*\n(?:[ \t]+-[^\n]*\n)*")
+
+
+def _write_integrations(root: Path, ids: list[str]) -> None:
+    path = root / "project.yaml"
+    text = path.read_text(encoding="utf-8")
+    line = f"integrations: {json.dumps(ids, ensure_ascii=False)}   # veja: python3 .uah/uah.py integrations\n"
+    if INTEGRATIONS_LINE.search(text):
+        new = INTEGRATIONS_LINE.sub(lambda _m: line, text, count=1)
+    elif re.search(r"(?m)^policy:", text):
+        new = re.sub(r"(?m)^policy:", line.rstrip("\n") + "\npolicy:", text, count=1)
+    else:
+        new = text.rstrip("\n") + "\n" + line
+    path.write_text(new, encoding="utf-8")
+    try:
+        cmd_compile(root)
+    except PolicyError:
+        path.write_text(text, encoding="utf-8")
+        raise
+
+
+def cmd_integrations(root: Path, action: str, ids: list[str]) -> None:
+    known = catalog(root)
+    for iid in ids:
+        _expect(iid in known, f"integração desconhecida {iid!r}; disponíveis: {', '.join(sorted(known))}")
+    try:
+        enabled = list(load_h2(root).get("integrations") or [])
+    except PolicyError:
+        enabled = []
+    if action == "list":
+        recs = {e["id"] for e in recommend(root)}
+        for iid, entry in sorted(known.items()):
+            st = integration_status(entry)
+            flags = ["ATIVA" if iid in enabled else "inativa",
+                     "instalada" if st["installed"] else "não instalada"]
+            if iid in recs and iid not in enabled:
+                flags.append("RECOMENDADA para este projeto")
+            print(f"{iid} — {entry.get('title')} [{', '.join(flags)}]")
+            print(f"  etapa: {entry.get('stage')} · quando: {entry.get('when')}")
+            print(f"  não usar: {entry.get('not_when')}")
+            print(f"  como: {entry.get('how')}")
+            print(f"  repo: {entry.get('repo')}" + (f" @ {st['commit']}" if st.get("commit") else ""))
+        return
+    if action == "install":
+        for iid in ids:
+            entry = known[iid]
+            st = integration_status(entry)
+            if st["installed"]:
+                print(f"{iid}: já instalada em {st['path']}")
+                continue
+            repo_name = entry["repo"].rstrip("/").rsplit("/", 1)[-1]
+            dest = Path.home() / ".claude" / "tools" / repo_name
+            if not dest.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                out = subprocess.run(["git", "clone", "--depth", "1", entry["repo"], str(dest)],
+                                     capture_output=True, text=True, timeout=300)
+                _expect(out.returncode == 0, f"{iid}: git clone falhou: {out.stderr.strip()[:300]}")
+            skill_src = (dest / entry.get("skill_subdir", ".")).resolve()
+            _expect((skill_src / "SKILL.md").is_file(), f"{iid}: SKILL.md não encontrado em {skill_src}")
+            link = skills_dir() / entry["skill_name"]
+            _expect(not link.exists(), f"{iid}: {link} já existe e não é a skill esperada; resolva manualmente")
+            skills_dir().mkdir(parents=True, exist_ok=True)
+            link.symlink_to(skill_src, target_is_directory=True)
+            commit = run(["git", "-C", str(dest), "rev-parse", "--short=12", "HEAD"])
+            print(f"{iid}: instalada em {link} -> {skill_src} @ {commit}. Reinicie o Claude Code para a skill aparecer.")
+            for req in entry.get("requires", []):
+                print(f"  requisito: {req}")
+        return
+    if action in ("enable", "disable"):
+        _expect(bool(ids), f"informe a(s) integração(ões) para {action}")
+        new = list(enabled)
+        for iid in ids:
+            if action == "enable" and iid not in new:
+                new.append(iid)
+            if action == "disable" and iid in new:
+                new.remove(iid)
+        _write_integrations(root, new)
+        for iid in ids:
+            entry = known[iid]
+            if action == "enable":
+                st = integration_status(entry)
+                print(f"{iid}: ativa" + ("" if st["installed"] else " — NÃO INSTALADA: rode `uah.py integrations install " + iid + "`"))
+                for tip in entry.get("advice", []):
+                    print(f"  dica: {tip}")
+            else:
+                print(f"{iid}: desativada")
+        return
+    raise PolicyError(f"ação desconhecida {action!r}")
+
+
+def cmd_explain(root: Path) -> None:
+    pol = resolve(root)
+    yes = lambda b: "sim" if b else "não"  # noqa: E731
+    print(f"Projeto `{pol['project']['id']}` — {pol['project'].get('title') or ''}".rstrip(" —"))
+    print(f"Risco: {pol['risk']} · gate de plano (G1): {yes(pol['plan_gate'])} · checkpoint obrigatório (G4): "
+          f"{yes(pol['g4_checkpoint'] == 'block')}")
+    state = "aprovado" if read_json(runtime_dir(root) / "plan.lock.json") else "não aprovado"
+    if pol["plan_gate"]:
+        print(f"  Plano {state}. Antes da aprovação o agente só lê e edita: {', '.join(pol['plan_gate_paths'])}")
+        if pol["gate_cli"]:
+            print("  CLIs liberadas antes da aprovação: " + "; ".join(
+                f"{g['script']} {'/'.join(g['subcommands'])} ({g['integration']})" for g in pol["gate_cli"]))
+    print("\nNunca alterar (imutáveis): " + (", ".join(p for p in pol["immutable_paths"] if not p.endswith("/**") or p[:-3] not in pol["immutable_paths"]) or "—"))
+    print("Alterar só com confirmação: " + (", ".join(p for p in pol["protected_paths"] if not p.endswith("/**") or p[:-3] not in pol["protected_paths"]) or "—"))
+    print("\nBloqueado (deny):")
+    for r in pol["bash_deny"]:
+        print(f"  [{r['id']}] {r['reason']}")
+    print("Pede confirmação (ask):")
+    for r in pol["bash_ask"]:
+        print(f"  [{r['id']}] {r['reason']}" + (" — sempre humano" if r.get("locked") else ""))
+    allow = pol["settings"]["allow"]
+    print("\nLiberado sem perguntar (settings_allow): " + (", ".join(allow) or "—"))
+    if pol["temporary_grants"]:
+        print("Concessões temporárias ativas: " + ", ".join(f"{g['id']} até {g['expires_at']}" for g in pol["temporary_grants"]))
+    if pol["integrations"]:
+        print("\nIntegrações ativas:")
+        for item in pol["integrations"]:
+            print(f"  {item['id']} ({'instalada' if item['installed'] else 'NÃO instalada'}) — {item['stage']}: {item['when']}")
+            print(f"    como: {item['how']}")
+    print("\nPrefixos dos ids: H0 universal · H1M/H1H risco · INT-* integração · H2 projeto · H3 tarefa.")
 
 
 def cmd_import_plan(root: Path, src: Path) -> None:
@@ -695,6 +957,7 @@ def cmd_preflight(root: Path) -> int:
         results.append((level, msg))
 
     policy = read_json(runtime_dir(root) / "policy.json")
+    fresh: dict | None = None
     if policy is None:
         add("FAIL", ".uah/policy.json ausente/inválida — rode compile")
     else:
@@ -771,6 +1034,11 @@ def cmd_preflight(root: Path) -> int:
             add("WARN", f"superfície do OMC mudou: {len(failures)} divergência(s) — revalidar")
         else:
             add("OK", "superfície do OMC igual ao lock")
+    for item in (fresh or {}).get("integrations", []):
+        if item["installed"]:
+            add("OK", f"integração {item['id']} instalada" + (f" @ {item['commit']}" if item.get("commit") else ""))
+        else:
+            add("WARN", f"integração {item['id']} ativa mas não instalada — `uah.py integrations install {item['id']}`")
     for grant in (policy or {}).get("temporary_grants", []):
         exp = _dt.datetime.fromisoformat(grant["expires_at"].replace("Z", "+00:00"))
         if exp <= _dt.datetime.now(_dt.timezone.utc):
@@ -793,6 +1061,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title")
     p.add_argument("--risk", choices=RISKS, default="medium")
     p.add_argument("--python", default="python3", help="comando python usado pelos hooks")
+    p.add_argument("--domains", default="", help="rótulos separados por vírgula, ex.: literatura,quimica-computacional")
+    p.add_argument("--integrations", default="", help="ids separados por vírgula, ex.: specboard,calcboard")
+    p = sub.add_parser("integrations", help="lista, instala, ativa ou desativa integrações externas")
+    p.add_argument("action", nargs="?", default="list", choices=("list", "install", "enable", "disable"))
+    p.add_argument("ids", nargs="*")
+    sub.add_parser("explain", help="explica as regras efetivas em linguagem simples")
     sub.add_parser("compile", help="resolve H0–H3 e escreve policy.json + settings.json")
     p = sub.add_parser("import-plan", help="importa plano/spec do OMC")
     p.add_argument("source")
@@ -820,7 +1094,12 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root).resolve()
     try:
         if args.cmd == "init":
-            cmd_init(root, args.project_id, args.title, args.risk, args.python)
+            split = lambda v: [x.strip() for x in v.split(",") if x.strip()]  # noqa: E731
+            cmd_init(root, args.project_id, args.title, args.risk, args.python, split(args.domains), split(args.integrations))
+        elif args.cmd == "integrations":
+            cmd_integrations(root, args.action, args.ids)
+        elif args.cmd == "explain":
+            cmd_explain(root)
         elif args.cmd == "compile":
             cmd_compile(root)
         elif args.cmd == "import-plan":

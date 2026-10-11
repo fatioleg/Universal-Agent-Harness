@@ -1,0 +1,43 @@
+{
+  "id": "calcboard",
+  "title": "CalcBoard",
+  "repo": "https://github.com/fatioleg/CalcBoard",
+  "skill_name": "calcboard",
+  "skill_subdir": "calcboard",
+  "kind": "skill",
+  "stage": "execução e validação",
+  "domains": [
+    "quimica-computacional",
+    "modelagem-molecular",
+    "simulacao",
+    "dft",
+    "materiais"
+  ],
+  "when": "Projeto com cálculos de estrutura eletrônica ou simulação atomística (ORCA, CP2K, VASP, Gaussian, QE, ASE): acompanhar jobs, conferir geometrias, energias e frequências e comparar método × referência como evidência antes de aceitar resultados.",
+  "not_when": "Projeto sem saídas de cálculo.",
+  "how": "/calcboard (descobrir -> painel.yaml -> gerar painel.html; `gerar --vigiar 120` acompanha ao vivo)",
+  "outputs": [
+    "painel.yaml",
+    "painel.html"
+  ],
+  "requires": [
+    "numpy",
+    "ase (formatos ASE)",
+    "pyyaml",
+    "playwright (opcional, captura)"
+  ],
+  "policy": {
+    "gate_cli": [
+      {
+        "script": "painel.py",
+        "subcommands": [
+          "ler"
+        ]
+      }
+    ]
+  },
+  "advice": [
+    "O painel só lê os resultados; declare saídas de cálculos concluídos em policy.protected_paths ou immutable_paths.",
+    "Em regras método × referência, fixe a estatística antes de ver os dados (pre_registrada)."
+  ]
+}

@@ -1,22 +1,37 @@
 # UAH-lite — configuração H2 do projeto.
 # Depois de editar, rode: python3 .uah/uah.py compile
+# Para ver as regras efetivas em linguagem simples: python3 .uah/uah.py explain
 uah_lite: "1"
+
 project:
   id: {{project_id_q}}
   title: {{title_q}}
-  domains: []            # ex.: [literatura, quimica-computacional, software, fomento]
-risk: {{risk}}           # low | medium | high (escolhe o overlay H1 em .uah/profiles/)
+  domains: {{domains_list}}   # rótulos que orientam as recomendações, ex.:
+                         # literatura, revisao-de-literatura, artigo-teorico, fomento, edital,
+                         # quimica-computacional, modelagem-molecular, dft, materiais, software, sdd
+
+risk: {{risk}}           # low    = só invariantes básicas, sem gate de plano
+                         # medium = nada é alterado antes do plano aprovado (G1)
+                         # high   = G1 + checkpoint obrigatório (G4) + confirmação p/ instalar, ssh e rm
+
 runtime:
-  python: {{python_q}}     # comando que os hooks usam (no Windows nativo, normalmente "python")
+  python: {{python_q}}   # comando que os hooks usam (no Windows nativo, normalmente "python")
+
+integrations: {{integrations_list}}   # ferramentas externas do fluxo (lista: python3 .uah/uah.py integrations)
+                         #   workflow-digestion: pasta de documentos -> corpus -> grafo -> Obsidian
+                         #   specboard:          painel de validação (módulos, contratos, fila humana)
+                         #   calcboard:          painel dos cálculos (ORCA, CP2K, VASP, Gaussian, QE, ASE)
+                         # ative com: python3 .uah/uah.py integrations enable <id>
+
 policy:
-  immutable_paths: []    # nunca alterar, ex.: ["data/raw/**", "references/pdfs/**"]
-  protected_paths: []    # alterar só com confirmação
+  immutable_paths: []    # nunca alterar (diretório literal protege o conteúdo), ex.: ["data/raw", "refs/pdfs"]
+  protected_paths: []    # alterar só com confirmação, ex.: ["manuscrito/final.docx"]
   bash_deny: []          # regex ou {id, pattern, reason}
   bash_ask: []
-  settings_allow: []     # regras do Claude Code, ex.: "Bash(pytest:*)"
+  settings_allow: []     # comandos seguros liberados sem perguntar, ex.: "Bash(pytest:*)", "Bash(orca:*)"
   settings_ask: []
   settings_deny: []
   grantable: []          # concessões que o H3 pode ativar por tempo limitado:
-                         #   - {id: push-branch, pattern: '^git push origin feat/\S+$', reason: '...'}
+                         #   - {id: push-feat, pattern: 'git push origin feat/\S+', reason: 'publicar branch de trabalho'}
   # plan_gate: true      # só pode endurecer; não desliga o que o risco exige
   # g4_checkpoint: block # off | block

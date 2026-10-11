@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-GUARD_VERSION = "0.6.0"
+GUARD_VERSION = "0.7.0"
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MUTATING_ALL_ARGS = {"rm", "rmdir", "unlink", "shred", "truncate", "chmod", "chown", "touch", "tee", "mv"}
@@ -353,6 +353,10 @@ def is_readonly(command: str, policy: dict, root: Path) -> bool:
             continue
         if cmd.startswith("python") and len(toks) > 1 and is_uah_cli(toks[1], root):
             continue
+        if cmd.startswith("python") and len(toks) > 2 and any(
+                os.path.basename(toks[1]) == g.get("script") and toks[2] in g.get("subcommands", [])
+                for g in policy.get("gate_cli", [])):
+            continue  # CLI de planejamento/leitura de integração ativa
         return False
     return True
 
@@ -524,6 +528,12 @@ def session_start(_payload: dict) -> None:
     for grant in policy.get("temporary_grants", []):
         if grant not in valid_grants(policy):
             warnings.append(f"concessão H3 `{grant['id']}` expirada (inativa)")
+    for item in policy.get("integrations", []):
+        installed = item.get("installed")
+        lines.append(f"Integração `{item.get('id')}` ({'instalada' if installed else 'NÃO instalada'}) — "
+                     f"{item.get('stage')}: {item.get('when')} Como: {item.get('how')}")
+        if not installed:
+            warnings.append(f"integração {item.get('id')} ativa mas não instalada (`uah.py integrations install {item.get('id')}`)")
     if warnings:
         lines.append("Avisos: " + "; ".join(warnings))
     lines.append("Antes de agir: leia state/current.md e plan/approved.md. Fonte de verdade = arquivos "

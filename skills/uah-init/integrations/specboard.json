@@ -1,0 +1,61 @@
+{
+  "id": "specboard",
+  "title": "specboard",
+  "repo": "https://github.com/fatioleg/specboard",
+  "skill_name": "specboard",
+  "skill_subdir": "specboard",
+  "kind": "skill",
+  "stage": "aprovação e execução",
+  "risk_min": "medium",
+  "domains": [
+    "software",
+    "sdd",
+    "modular",
+    "pesquisa",
+    "quimica-computacional",
+    "modelagem-molecular"
+  ],
+  "when": "Projeto modular (vários entregáveis com dependências) em risco medium/high: converte o plano em módulos, contratos pré-registrados e etapas com afirmação/verificação/evidência, e mostra a fila do que o humano ainda precisa conferir.",
+  "not_when": "Projeto de uma tarefa só ou risco low.",
+  "how": "/specboard após importar o plano (o painel apoia a revisão antes do approve) e a cada etapa executada",
+  "outputs": [
+    ".specboard/estado.json",
+    ".specboard/painel.html",
+    ".specboard/verificacoes.jsonl (só o humano escreve)"
+  ],
+  "requires": [
+    "Python 3 (sem dependências)"
+  ],
+  "policy": {
+    "immutable_paths": [
+      ".specboard/verificacoes.jsonl"
+    ],
+    "bash_deny": [
+      {
+        "id": "INT-SB-human",
+        "pattern": "specboard(\\.py)?\\b.*\\b(review|verify)\\b",
+        "reason": "revisão/verificação no specboard é ato humano; peça ao usuário para rodar no terminal dele"
+      }
+    ],
+    "plan_gate_paths": [
+      ".specboard/**"
+    ],
+    "gate_cli": [
+      {
+        "script": "specboard.py",
+        "subcommands": [
+          "init",
+          "validate",
+          "queue",
+          "build",
+          "lock",
+          "amend"
+        ]
+      }
+    ]
+  },
+  "advice": [
+    "O specboard instala o próprio hook PreToolUse (block_verify_hook.py); o compile do UAH preserva hooks de terceiros.",
+    "Rode `specboard.py lock <MOD>` antes da etapa que produz o resultado principal do módulo."
+  ]
+}

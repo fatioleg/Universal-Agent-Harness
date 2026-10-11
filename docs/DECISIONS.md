@@ -184,3 +184,19 @@
 - Consequences: AD-003's "no automatic resolver" is superseded for the risk/
   permission subset only; archetype classification remains agent-assisted.
   Bash analysis is heuristic and documented as such.
+
+## AD-015 — v0.7.0: integration catalog instead of hard-wired tools
+
+- Status: accepted
+- Date: 2026-10-11
+- Context: the author maintains reusable Claude Code skills (Workflow_Digestion,
+  specboard, CalcBoard) that fit specific stages of the UAH flow. Hard-wiring them
+  would make every project carry tools it does not need.
+- Decision: describe each tool as a catalog entry (repo, stage, when / when not,
+  requirements, trusted rule overlay). A project opts in through
+  `project.yaml → integrations`; installation is detected, never assumed, and kept
+  out of the policy hash. Enabling or installing requires human confirmation.
+- Rejected: a plugin marketplace or automatic installation (report §7); copying
+  the tools into this repository (drift).
+- Consequences: AT-05 is enforced at the integration level (declared ≠ installed ≠
+  enabled); new tools are added by writing one JSON file plus tests.

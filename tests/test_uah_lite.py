@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,7 +23,8 @@ import yaml
 
 SKILL = Path(__file__).resolve().parents[1] / "skills" / "uah-init"
 UAH = SKILL / "uah.py"
-ENV = dict(os.environ, UAH_SKIP_VERSION_PROBE="1")
+FAKE_HOME = Path(tempfile.mkdtemp(prefix="uah-home-"))  # isola a detecção de skills instaladas
+ENV = dict(os.environ, UAH_SKIP_VERSION_PROBE="1", HOME=str(FAKE_HOME))
 
 
 def sh(cmd: list[str], cwd: Path, stdin: str | None = None, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -300,10 +302,11 @@ class UahLiteTests(_Base):
         p = self.make(risk="medium")
         src = p.root / ".omc/plans/ralplan-x.md"
         src.parent.mkdir(parents=True)
-        src.write_text(f"# Plan\n\n## Scope\nfiles in {Path.home()}/dados\n\n## Acceptance Criteria\n- ok\n")
+        src.write_text(f"# Plan\n\n## Scope\nfiles in {FAKE_HOME}/dados\n\n## Acceptance Criteria\n- ok\n")
         self.assertEqual(p.uah("import-plan", str(src)).returncode, 0)
         text = (p.root / "plan/approved.md").read_text()
-        self.assertNotIn(str(Path.home()), text)
+        self.assertNotIn(str(FAKE_HOME), text)
+        self.assertIn("~/dados", text)
         self.assertIn("status: \"draft\"", text)
         self.assertEqual(p.uah("approve").returncode, 0)
 
@@ -456,6 +459,133 @@ class ReviewRegressionTests(_Base):
         cmds = [h["command"] for e in json.loads(path.read_text())["hooks"]["PreToolUse"] for h in e["hooks"]]
         self.assertIn("meu-lint", cmds)
         self.assertEqual(sum(".uah/hooks/uah_guard.py" in c for c in cmds), 1)
+
+
+class IntegrationTests(_Base):
+    """Integrações do catálogo: workflow-digestion, specboard, calcboard (v0.7.0)."""
+
+    def setUp(self):
+        super().setUp()
+        self.skills = FAKE_HOME / ".claude" / "skills"
+        shutil.rmtree(FAKE_HOME / ".claude", ignore_errors=True)
+
+    def fake_skill(self, folder: str, name: str) -> Path:
+        d = self.skills / folder
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: x\n---\n")
+        return d
+
+    def test_catalog_lists_all_three_with_recommendations(self):
+        p = self.make(risk="medium")
+        p.edit_yaml(lambda d: d["project"].update(domains=["quimica-computacional"]))
+        out = p.uah("integrations")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        for iid in ("workflow-digestion", "specboard", "calcboard"):
+            self.assertIn(iid, out.stdout)
+        calc = [l for l in out.stdout.splitlines() if l.startswith("calcboard")][0]
+        wd = [l for l in out.stdout.splitlines() if l.startswith("workflow-digestion")][0]
+        self.assertIn("RECOMENDADA", calc)
+        self.assertNotIn("RECOMENDADA", wd)
+
+    def test_specboard_risk_min_not_recommended_on_low(self):
+        p = self.make(risk="low")
+        p.edit_yaml(lambda d: d["project"].update(domains=["software"]))
+        line = [l for l in p.uah("integrations").stdout.splitlines() if l.startswith("specboard")][0]
+        self.assertNotIn("RECOMENDADA", line)
+
+    def test_enable_rewrites_yaml_and_applies_overlay(self):
+        p = self.make(risk="medium")
+        self.assertEqual(p.bash("python3 .uah/uah.py integrations enable specboard"), "ask")  # decisão humana
+        out = p.uah("integrations", "enable", "specboard", "calcboard")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("NÃO INSTALADA", out.stdout)
+        data = yaml.safe_load((p.root / "project.yaml").read_text())
+        self.assertEqual(data["integrations"], ["specboard", "calcboard"])
+        self.assertIn("# UAH-lite", (p.root / "project.yaml").read_text())  # comentários preservados
+        # plano pendente: specboard pode montar o painel; verificação continua humana
+        self.assertIsNone(p.write(".specboard/estado.json"))
+        self.assertIsNone(p.bash("python3 ~/.claude/skills/specboard/scripts/specboard.py build"))
+        self.assertEqual(p.bash("python3 x/specboard.py verify M0.1"), "deny")
+        self.assertEqual(p.write(".specboard/verificacoes.jsonl"), "deny")
+        self.assertIsNone(p.bash("python3 /x/calcboard/scripts/painel.py ler out.log"))
+        self.assertEqual(p.bash("python3 /x/calcboard/scripts/painel.py gerar painel.yaml"), "deny")
+        out = p.uah("integrations", "disable", "specboard")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(p.write(".specboard/estado.json"), "deny")
+
+    def test_workflow_digestion_graphify_costs_ask(self):
+        p = self.make(risk="low")
+        p.uah("integrations", "enable", "workflow-digestion")
+        self.assertEqual(p.bash("graphify ./corpus --obsidian"), "ask")
+        self.assertIsNone(p.bash("graphify --help"))
+
+    def test_unknown_integration_and_typos_are_explained(self):
+        p = self.make(risk="medium")
+        out = p.uah("integrations", "enable", "specbord")
+        self.assertEqual(out.returncode, 3)
+        self.assertIn("integração desconhecida", out.stderr)
+        p.edit_yaml(lambda d: d.update(integrations=["calcbord"]))
+        out = p.uah("compile")
+        self.assertEqual(out.returncode, 3)
+        self.assertIn("quis dizer 'calcboard'", out.stderr)
+        p.edit_yaml(lambda d: (d.pop("integrations"), d.update(risc="high")))
+        out = p.uah("compile")
+        self.assertIn("quis dizer 'risk'", out.stderr)
+
+    def test_installed_status_detected_and_hash_machine_independent(self):
+        p = self.make(risk="medium")
+        p.uah("integrations", "enable", "calcboard")
+        pre = p.uah("preflight")
+        self.assertIn("calcboard ativa mas não instalada", pre.stdout)
+        hash_before = json.loads((p.root / ".uah/policy.json").read_text())["resolution_hash"]
+        self.fake_skill("CalcBoard-qualquer-nome", "calcboard")
+        pre = p.uah("preflight")
+        self.assertIn("integração calcboard instalada", pre.stdout)
+        self.assertNotIn("configuração mudou", pre.stdout)  # instalar não muda a política
+        p.uah("compile")
+        self.assertEqual(json.loads((p.root / ".uah/policy.json").read_text())["resolution_hash"], hash_before)
+        start = p.hook("session-start", {})
+        self.assertIn("Integração `calcboard` (instalada)", start.stdout)
+
+    def test_install_from_pinned_catalog_entry(self):
+        p = self.make(risk="low")
+        src = p.root.parent / "remote-skill"
+        (src / "sub").mkdir(parents=True)
+        (src / "sub" / "SKILL.md").write_text("---\nname: demo-skill\n---\n")
+        for cmd in (["git", "init", "-q"], ["git", "add", "-A"],
+                    ["git", "-c", "user.name=t", "-c", "user.email=t@x", "commit", "-qm", "x"]):
+            sh(cmd, src)
+        entry = {"id": "demo", "title": "Demo", "repo": str(src), "skill_name": "demo-skill", "skill_subdir": "sub",
+                 "stage": "teste", "when": "teste", "how": "/demo", "policy": {}}
+        (p.root / ".uah/integrations/demo.json").write_text(json.dumps(entry))
+        out = p.uah("integrations", "install", "demo")
+        self.assertEqual(out.returncode, 0, out.stderr + out.stdout)
+        self.assertTrue((self.skills / "demo-skill" / "SKILL.md").is_file())
+        again = p.uah("integrations", "install", "demo")
+        self.assertIn("já instalada", again.stdout)
+
+    def test_explain_shows_layers_and_integrations(self):
+        p = self.make(risk="high")
+        p.uah("integrations", "enable", "specboard")
+        p.edit_yaml(lambda d: d["policy"].update(immutable_paths=["data/raw"]))
+        out = p.uah("explain")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        for text in ("Risco: high", "checkpoint obrigatório (G4): sim", "data/raw", "[INT-SB-human]",
+                     "[H1H-install]", "specboard (NÃO instalada)"):
+            self.assertIn(text, out.stdout)
+
+    def test_init_with_domains_and_integrations(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        out = sh([sys.executable, str(UAH), "--root", str(root), "init", "--risk", "medium",
+                  "--domains", "literatura,edital", "--integrations", "workflow-digestion"], root)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        data = yaml.safe_load((root / "project.yaml").read_text())
+        self.assertEqual(data["project"]["domains"], ["literatura", "edital"])
+        self.assertEqual(data["integrations"], ["workflow-digestion"])
+        bad = sh([sys.executable, str(UAH), "--root", str(root / "x"), "init", "--integrations", "nada"], root)
+        self.assertEqual(bad.returncode, 3)
 
 
 if __name__ == "__main__":

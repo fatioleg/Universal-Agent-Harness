@@ -80,6 +80,21 @@
 - added `tests/test_uah_lite.py` (30 behavioral tests: AT-01/02/03/05/07/09/14 plus 14 regressions from an independent review — grant scope, fail-closed guard, quote-aware shell parsing, literal-directory protection, YAML-safe init, G4 with accented paths) and `docs/uah-lite.md`;
 - documented AD-014.
 
+## 0.7.0 — 2026-10-11
+
+- added an integration catalog (`skills/uah-init/integrations/`) following the report's integration contract:
+  Workflow_Digestion (documents → corpus → graph → Obsidian), specboard (module validation board with human-only
+  verification) and CalcBoard (computational-chemistry results board);
+- `project.yaml` gained `integrations:`; enabled integrations add trusted H1-level rules (specboard: human-only
+  review/verify, `.specboard/**` and planning CLI allowed before approval; CalcBoard: `painel.py ler`;
+  Workflow_Digestion: `graphify` asks because of token cost);
+- new commands: `integrations [list|install|enable|disable]` (recommendations from `project.domains` + risk;
+  install clones into `~/.claude/tools/` and links the skill) and `explain` (effective rules in plain language);
+- `init --domains/--integrations`; unknown fields now fail with a spelling suggestion; richer `project.yaml` template;
+- SessionStart summary and `preflight` report each enabled integration and whether it is installed (machine-specific
+  status is kept out of the policy hash);
+- 39 behavioral tests (9 new for integrations); documented AD-015.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

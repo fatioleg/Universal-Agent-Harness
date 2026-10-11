@@ -123,6 +123,10 @@ REQUIRED_FILES = [
     "skills/uah-init/templates/state.md",
     "skills/uah-init/templates/entrypoint-block.md",
     "tests/test_uah_lite.py",
+    # v0.7.0 additions (integration catalog)
+    "skills/uah-init/integrations/workflow-digestion.json",
+    "skills/uah-init/integrations/specboard.json",
+    "skills/uah-init/integrations/calcboard.json",
 ]
 
 
@@ -211,6 +215,17 @@ def main() -> None:
         match = re.search(rf'^{constant} = "([^"]+)"', (ROOT / relative).read_text(encoding="utf-8"), re.M)
         if not match or match.group(1) != version:
             fail(f"{relative} {constant} must equal VERSION {version}")
+    integration_keys = {"id", "title", "repo", "skill_name", "skill_subdir", "stage", "when", "not_when", "how"}
+    for entry_path in sorted((ROOT / "skills/uah-init/integrations").glob("*.json")):
+        entry = json.loads(entry_path.read_text(encoding="utf-8"))
+        missing_keys = integration_keys - set(entry)
+        if missing_keys:
+            fail(f"{entry_path.name}: missing integration fields {sorted(missing_keys)}")
+        if entry["id"] != entry_path.stem:
+            fail(f"{entry_path.name}: id {entry['id']!r} must match the file name")
+        policy = entry.get("policy", {})
+        for rule in policy.get("bash_deny", []) + policy.get("bash_ask", []):
+            re.compile(rule["pattern"])
     for profile in sorted((ROOT / "skills/uah-init/profiles").glob("*.json")):
         data = json.loads(profile.read_text(encoding="utf-8"))
         for rule in data.get("bash_deny", []) + data.get("bash_ask", []):

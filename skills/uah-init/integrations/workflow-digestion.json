@@ -1,0 +1,44 @@
+{
+  "id": "workflow-digestion",
+  "title": "Workflow_Digestion",
+  "repo": "https://github.com/fatioleg/Workflow_Digestion",
+  "skill_name": "workflow-digestion",
+  "skill_subdir": ".",
+  "kind": "skill",
+  "stage": "descoberta",
+  "domains": [
+    "literatura",
+    "revisao-de-literatura",
+    "artigo-teorico",
+    "fomento",
+    "edital",
+    "documentos",
+    "knowledge-base"
+  ],
+  "when": "Há uma pasta com muitos documentos-fonte (PDF, DOCX, PPTX, planilhas, imagens) que precisam virar corpus pesquisável, grafo de conhecimento e vault do Obsidian: revisão de literatura, edital, base de conhecimento.",
+  "not_when": "Um ou poucos documentos (basta markitdown) ou repositório só de código.",
+  "how": "/workflow-digestion <pasta-fonte>  (MarkItDown -> Graphify -> Obsidian)",
+  "outputs": [
+    "<fonte>/corpus/",
+    "<fonte>/graphify-out/",
+    "<fonte>/obsidian-vault/"
+  ],
+  "requires": [
+    "pip install 'markitdown[all]'",
+    "pip install graphifyy",
+    "Obsidian (opcional, para abrir o vault)"
+  ],
+  "policy": {
+    "bash_ask": [
+      {
+        "id": "INT-WD-graphify",
+        "pattern": "(?m)(^|[;&|]\\s*)graphify\\b(?!.*(--help|--version|\\s-h\\b))",
+        "reason": "a extração semântica do graphify consome muitos tokens (ref.: ~2,4 M para 35 artigos longos); confirme escopo e custo"
+      }
+    ]
+  },
+  "advice": [
+    "Declare a pasta-fonte em policy.immutable_paths: a digestão só lê os originais.",
+    "corpus/, graphify-out/ e obsidian-vault/ são derivados e regeneráveis; versione só se precisar (podem ser grandes)."
+  ]
+}

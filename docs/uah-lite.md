@@ -1,4 +1,4 @@
-# UAH-lite (v0.6.0)
+# UAH-lite (v0.7.0)
 
 Implementação mínima e executável da recomendação da auditoria de 11/10/2026: o UAH deixa de ser só
 documentação e passa a **compilar** as regras H0–H3 para o ponto onde elas podem ser aplicadas de fato, ou seja,
@@ -38,6 +38,33 @@ superior, campo desconhecido ou regex inválida → `BLOQUEADO` e nada é escrit
 `plan/approved.md`, substituindo o caminho da home por `~`. `init` grava `omc capabilities lock` e o `preflight` roda `check`:
 se o OMC mudar, o preflight avisa.
 
+## Integrações (v0.7.0)
+
+Catálogo em `skills/uah-init/integrations/*.json`, no formato de contrato de integração da §7 do relatório:
+repositório, quando usar, quando não usar, etapa do fluxo, requisitos e regras próprias. Uma integração só entra
+nas regras do projeto quando listada em `project.yaml → integrations`. A instalação é detectada pelo `SKILL.md`
+da skill (`name:`), e o commit instalado é registrado. O estado instalado ou não fica fora do hash da política,
+então a mesma política vale em máquinas diferentes.
+
+| Integração | Etapa | Quando | Regras que acrescenta |
+|---|---|---|---|
+| [Workflow_Digestion](https://github.com/fatioleg/Workflow_Digestion) | descoberta | pasta com muitos documentos → corpus, grafo, vault do Obsidian | `graphify` pede confirmação (custo de tokens) |
+| [specboard](https://github.com/fatioleg/specboard) | entre `import-plan` e `approve`; execução | projeto modular medium/high: módulos, contratos pré-registrados, fila de verificação humana | `review`/`verify` negados ao agente; `verificacoes.jsonl` imutável; `.specboard/**` e `specboard.py init/validate/queue/build/lock/amend` liberados antes da aprovação |
+| [CalcBoard](https://github.com/fatioleg/CalcBoard) | execução e validação | saídas de ORCA, CP2K, VASP, Gaussian, QE, ASE | `painel.py ler` liberado antes da aprovação |
+
+Comandos: `uah.py integrations` (lista + recomendações por `project.domains` e risco),
+`integrations install <id>` (clona em `~/.claude/tools/` e liga a skill em `~/.claude/skills/`),
+`integrations enable|disable <id>` (edita só a linha `integrations:` do `project.yaml`, preservando os comentários,
+e recompila). `install` e `enable` pedem confirmação humana.
+O Workflow_Digestion implementa, na prática, os contratos `markitdown-normalize`, `graphify-build` e
+`obsidian-interface` de `contracts/tools/`.
+
+## `explain`
+
+`uah.py explain` mostra as regras efetivas em linguagem simples: risco, gates, caminhos imutáveis e protegidos, o que
+é negado, o que pede confirmação (com o id de origem, H0/H1/INT/H2/H3), o que está liberado e as integrações ativas.
+Campos desconhecidos no `project.yaml` geram erro com sugestão de grafia (ex.: `risc` → `risk`).
+
 ## Instalação da skill
 
 ```bash
@@ -46,7 +73,7 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: 30 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14 e 14 regressões da revisão independente) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 39 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 9 de integrações) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
 
 ## Limites conhecidos

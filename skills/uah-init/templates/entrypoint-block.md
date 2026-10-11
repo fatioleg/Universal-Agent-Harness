@@ -7,5 +7,6 @@
 - **Planejamento:** use a entrevista e o planejamento do OMC só quando houver lacunas reais. Importe o plano com `python3 .uah/uah.py import-plan <arquivo>`.
 - **Checkpoint G4:** ao pausar, trocar de conta/máquina ou delegar, rode `python3 .uah/uah.py checkpoint --task T-xxx --status <active|paused|blocked|done> --next "..."`.
 - **Política:** `.uah/policy.json` é gerada (não editar). Para mudar regras, edite `project.yaml` e rode `python3 .uah/uah.py compile`. Risco: **{{risk}}**.
+- **Integrações:** as ativas aparecem no resumo do início da sessão, com quando e como usar. Para listar ou sugerir, rode `python3 .uah/uah.py integrations`. As regras efetivas ficam em `python3 .uah/uah.py explain`.
 - Ações externas (push, publicação, envio de dados, sudo) pedem confirmação. Dados em `immutable_paths` não são alterados.
 <!-- UAH:END -->

@@ -40,8 +40,8 @@
   "bash_ask": [
     {
       "id": "H0-approve",
-      "pattern": "\\buah\\.py\\s+(--root\\s+\\S+\\s+)?(approve\\b|task\\b.*\\s--grant\\b)",
-      "reason": "aprovar o plano ou conceder permissão temporária é decisão humana",
+      "pattern": "\\buah\\.py\\s+(--root\\s+\\S+\\s+)?(approve\\b|task\\b.*\\s--grant\\b|integrations\\s+(enable|install)\\b)",
+      "reason": "aprovar o plano, conceder permissão temporária ou ativar/instalar integração é decisão humana",
       "locked": true
     },
     {
