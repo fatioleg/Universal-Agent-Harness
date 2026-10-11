@@ -23,7 +23,7 @@ autoridade** (sources imutáveis, representações derivadas).
 
 **Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
 rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
-[UAH-lite](#uah-lite-v082--harness-executável-por-projeto) abaixo.
+[UAH-lite](#uah-lite-v083--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -43,7 +43,7 @@ Caminhos declarativos anteriores (continuam válidos):
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
 
-## UAH-lite (v0.8.2) — harness executável por projeto
+## UAH-lite (v0.8.3) — harness executável por projeto
 
 O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
 planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
@@ -234,7 +234,12 @@ amplo (ex.: `Bash(git:*)`), campo desconhecido ou regex inválida → `BLOQUEADO
 6. **Pede confirmação** para push, publicação, envio de dados, `sudo` e arquivos protegidos.
 7. Fora isso, não opina: vale o fluxo normal do Claude Code.
 
-Erro interno no guarda vira bloqueio (fail-closed).
+Erro interno no guarda vira bloqueio (fail-closed). As regras valem também para o comando como o shell o
+executa (aspas e escapes que fragmentam palavras, como `g''it push`, não escapam), e as mais críticas são
+compiladas ainda como permissões nativas do Claude Code. Com `.uah/policy.json` ausente, só os subcomandos de
+bootstrap do `uah.py` (`compile`, `init`, `preflight`, `status`, `explain`) passam. Escrita fora do projeto pede
+confirmação, exceto na área temporária do sistema. As CLIs de integração liberadas antes da aprovação precisam
+estar dentro da skill instalada, com origem verificada pelo remoto git. Não basta o nome do arquivo.
 
 ### Quem faz o quê
 
@@ -666,7 +671,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.8.2 (única versão do produto)
+├── VERSION                   # 0.8.3 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -694,7 +699,7 @@ Universal-Agent-Harness/
 │                             # profiles/ (H0 + risco H1), templates/,
 │                             # integrations/ (catálogo de ferramentas)
 │
-├── tests/test_uah_lite.py    # 48 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias)
+├── tests/test_uah_lite.py    # 58 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias, auditoria)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
@@ -722,14 +727,14 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # 48 testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 58 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
-validador em v0.8.2:
+validador em v0.8.3:
 
 ```text
-PASS: Universal Agent Harness 0.8.2
+PASS: Universal Agent Harness 0.8.3
 PASS: 108 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
@@ -740,7 +745,7 @@ PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 
 ## Status
 
-Versão **0.8.2**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
+Versão **0.8.3**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
 catálogo de integrações (Workflow_Digestion, specboard, CalcBoard, publish-documents, sci-figures) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
 parte executável: resolvedor H0–H3 determinístico compilado para o
 Claude Code, gate de plano aprovado e checkpoint de retomada, com

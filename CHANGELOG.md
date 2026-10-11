@@ -126,6 +126,25 @@
   chemistry/materials/simulation domains, `artigo-teorico`, `relatorio`, `fomento`;
 - 48 behavioral tests.
 
+## 0.8.3 — 2026-10-11
+
+Correções da auditoria do Codex:
+- guard: regras regex aplicadas também ao comando normalizado pelo shell (sem aspas/escapes), fechando
+  bypasses como `a''pprove`, `g''it push`, `cu''rl`; regras críticas compiladas também como permissões
+  nativas do Claude Code (segunda camada: `Bash(git push:*)` ask, `Bash(gh repo delete:*)` deny etc.);
+- política ausente: só `compile|init|preflight|status|explain` do uah.py passam (sem redirecionamento nem
+  encadeamento); `approve`, `task --grant`, `integrations install` e o resto são negados;
+- executáveis: `./cat` ou `tools/cat` não contam como leitura (só PATH ou diretórios de sistema);
+  `cp|mv|ln|install -t DIR`/`--target-directory` entram na checagem de caminhos imutáveis;
+- escrita fora do projeto: pede confirmação (negada antes da aprovação); só a área temporária fica livre;
+- CLIs liberadas antes da aprovação (gate_cli) exigem o script dentro da skill instalada E de origem
+  verificada (remoto git = repositório do catálogo), não apenas o nome do arquivo;
+- G4: considera alterações já commitadas desde o último checkpoint e, sem git, varre o projeto;
+- integrações fixadas por commit (`ref` no catálogo, validado como SHA de 40 caracteres); `install` faz
+  checkout do ref e recusa clone com remoto diferente; status mostra origem verificada e commit fixado;
+- compile atômico: settings.json é preparado antes e todos os arquivos são gravados por troca atômica;
+- 58 testes (10 novos de auditoria).
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

@@ -2,6 +2,7 @@
   "id": "calcboard",
   "title": "CalcBoard",
   "repo": "https://github.com/fatioleg/CalcBoard",
+  "ref": "f88b56d697e6da83ffcd0b58b3d604322f17d733",
   "skill_name": "calcboard",
   "skill_subdir": "calcboard",
   "kind": "skill",

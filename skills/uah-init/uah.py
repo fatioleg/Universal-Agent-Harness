@@ -45,7 +45,7 @@ except ImportError:  # pragma: no cover - mensagem para o operador
     print("UAH-lite precisa de PyYAML: python3 -m pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-UAH_LITE_VERSION = "0.8.2"
+UAH_LITE_VERSION = "0.8.3"
 HERE = Path(__file__).resolve().parent
 RISKS = ("low", "medium", "high")
 G4_ORDER = {"off": 0, "block": 1}
@@ -100,6 +100,13 @@ def read_json(path: Path, default=None):
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return default
+
+
+def write_json_atomic(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def write_json(path: Path, data) -> None:
@@ -322,12 +329,30 @@ def find_skill(skill_name: str) -> Path | None:
     return None
 
 
+def repo_key(url: str | None) -> str:
+    """github.com/dono/repo, igual para SSH e HTTPS (com ou sem .git)."""
+    if not url:
+        return ""
+    url = url.strip().lower()
+    url = re.sub(r"^git@([^:]+):", r"\1/", url)
+    url = re.sub(r"^(https?|ssh|git)://([^@/]+@)?", "", url)
+    return re.sub(r"\.git$", "", url).rstrip("/")
+
+
 def integration_status(entry: dict) -> dict:
+    """Instalada = SKILL.md com o `name`; verificada = repositório git cujo remoto é o do catálogo;
+    fixada = commit instalado igual ao `ref` do catálogo (quando houver)."""
     path = find_skill(entry["skill_name"])
-    commit = None
+    commit, verified, pinned = None, False, None
     if path is not None:
-        commit = run(["git", "-C", str(Path(os.path.realpath(path))), "rev-parse", "--short=12", "HEAD"])
-    return {"installed": path is not None, "path": str(path) if path else None, "commit": commit}
+        real = str(Path(os.path.realpath(path)))
+        commit = run(["git", "-C", real, "rev-parse", "HEAD"])
+        remote = run(["git", "-C", real, "remote", "get-url", "origin"])
+        verified = bool(commit) and repo_key(remote) == repo_key(entry.get("repo"))
+        if entry.get("ref") and commit:
+            pinned = commit.startswith(str(entry["ref"]))
+    return {"installed": path is not None, "path": str(path) if path else None,
+            "commit": commit[:12] if commit else None, "verified": verified, "pinned": pinned}
 
 
 def _integration_overlay(entry: dict) -> dict:
@@ -518,7 +543,7 @@ def settings_entries(policy: dict) -> tuple[dict, dict]:
     return perms, hooks
 
 
-def merge_settings(root: Path, policy: dict) -> Path:
+def merge_settings(root: Path, policy: dict, write: bool = True) -> tuple[dict, dict]:
     path = root / ".claude" / "settings.json"
     settings = {}
     if path.exists():
@@ -560,9 +585,11 @@ def merge_settings(root: Path, policy: dict) -> Path:
     for event, entries in hooks.items():
         all_hooks.setdefault(event, []).extend(entries)
 
-    write_json(path, settings)
-    write_json(managed_path, {"owned": owned, "hook_events": sorted(hooks), "updated_at": now_iso()})
-    return path
+    managed_new = {"owned": owned, "hook_events": sorted(hooks), "updated_at": now_iso()}
+    if write:
+        write_json_atomic(path, settings)
+        write_json_atomic(managed_path, managed_new)
+    return settings, managed_new
 
 
 # ------------------------------------------------------------------ cmds
@@ -570,8 +597,11 @@ def merge_settings(root: Path, policy: dict) -> Path:
 def cmd_compile(root: Path, quiet: bool = False) -> dict:
     policy = resolve(root)
     stamped = dict(policy, compiled_at=now_iso())
-    write_json(runtime_dir(root) / "policy.json", stamped)
-    merge_settings(root, policy)
+    # Prepara tudo antes de gravar: settings.json inválido aborta sem tocar em policy.json.
+    settings, managed = merge_settings(root, policy, write=False)
+    write_json_atomic(root / ".claude" / "settings.json", settings)
+    write_json_atomic(runtime_dir(root) / "managed-settings.json", managed)
+    write_json_atomic(runtime_dir(root) / "policy.json", stamped)
     if not quiet:
         print(f"compile: risco {policy['risk']} · gate G1 {'on' if policy['plan_gate'] else 'off'} · "
               f"G4 {policy['g4_checkpoint']} · {len(policy['bash_deny'])} deny / {len(policy['bash_ask'])} ask · "
@@ -756,15 +786,24 @@ def cmd_integrations(root: Path, action: str, ids: list[str]) -> None:
             entry = known[iid]
             st = integration_status(entry)
             if st["installed"]:
-                print(f"{iid}: já instalada em {st['path']}")
+                origin = "origem verificada" if st["verified"] else "ORIGEM NÃO VERIFICADA (remoto ≠ catálogo)"
+                pin = "" if st["pinned"] is None else (" · commit fixado" if st["pinned"] else
+                                                       f" · commit {st['commit']} ≠ ref {str(entry['ref'])[:12]}")
+                print(f"{iid}: já instalada em {st['path']} ({origin}{pin})")
                 continue
             repo_name = entry["repo"].rstrip("/").rsplit("/", 1)[-1]
             dest = Path.home() / ".claude" / "tools" / repo_name
             if not dest.exists():
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                out = subprocess.run(["git", "clone", "--depth", "1", entry["repo"], str(dest)],
-                                     capture_output=True, text=True, timeout=300)
+                out = subprocess.run(["git", "clone", entry["repo"], str(dest)], capture_output=True, text=True,
+                                     timeout=600)
                 _expect(out.returncode == 0, f"{iid}: git clone falhou: {out.stderr.strip()[:300]}")
+            _expect(repo_key(run(["git", "-C", str(dest), "remote", "get-url", "origin"])) == repo_key(entry["repo"]),
+                    f"{iid}: {dest} existe mas não é um clone de {entry['repo']}; resolva manualmente")
+            if entry.get("ref"):
+                out = subprocess.run(["git", "-C", str(dest), "checkout", "-q", str(entry["ref"])],
+                                     capture_output=True, text=True, timeout=120)
+                _expect(out.returncode == 0, f"{iid}: commit fixado {entry['ref']} indisponível: {out.stderr.strip()[:200]}")
             skill_src = (dest / entry.get("skill_subdir", ".")).resolve()
             _expect((skill_src / "SKILL.md").is_file(), f"{iid}: SKILL.md não encontrado em {skill_src}")
             link = skills_dir() / entry["skill_name"]

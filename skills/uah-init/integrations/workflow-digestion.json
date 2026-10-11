@@ -2,6 +2,7 @@
   "id": "workflow-digestion",
   "title": "Workflow_Digestion",
   "repo": "https://github.com/fatioleg/Workflow_Digestion",
+  "ref": "65e9806cf6e35beaa5ffa8c5a2789960c614e0c4",
   "skill_name": "workflow-digestion",
   "skill_subdir": ".",
   "kind": "skill",

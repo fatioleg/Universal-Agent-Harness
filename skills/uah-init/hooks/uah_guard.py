@@ -32,11 +32,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-GUARD_VERSION = "0.8.2"
+GUARD_VERSION = "0.8.3"
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MUTATING_ALL_ARGS = {"rm", "rmdir", "unlink", "shred", "truncate", "chmod", "chown", "touch", "tee", "mv"}
 MUTATING_LAST_ARG = {"cp", "rsync", "ln", "install"}
+TARGET_DIR_CMDS = {"cp", "mv", "ln", "install"}       # aceitam -t DIR / --target-directory=DIR
+TRUSTED_BIN_DIRS = {"/usr/bin", "/bin", "/usr/local/bin", "/usr/sbin", "/sbin"}
+# Exceção de bootstrap quando a política está ausente: só subcomandos que não ampliam permissões.
+BOOTSTRAP_UAH_SUBCOMMANDS = {"compile", "init", "preflight", "status", "explain"}
 IN_PLACE_EDITORS = {"sed", "perl"}
 GIT_MUTATING = {"rm", "mv", "checkout", "restore", "clean"}
 GIT_GLOBAL_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace"}
@@ -223,6 +227,23 @@ def lex(command: str) -> list[str] | None:
         return None
 
 
+def normalized(command: str) -> str | None:
+    """Comando reconstruído a partir dos tokens do shell: remove aspas e escapes que fragmentam palavras
+    (a''pprove, g\\it, "cu"rl), para as regras regex enxergarem o que o shell executará."""
+    toks = lex(command)
+    if toks is None:
+        return None
+    return " ".join(toks)
+
+
+def rule_views(command: str) -> list[str]:
+    views = [command]
+    norm = normalized(command)
+    if norm is not None and norm != command:
+        views.append(norm)
+    return views
+
+
 def is_punct(tok: str) -> bool:
     return bool(tok) and all(ch in PUNCT for ch in tok)
 
@@ -280,6 +301,27 @@ def segment_texts(command: str) -> list[str] | None:
     return [" ".join(s["args"]) for s in segs if s["args"]]
 
 
+def trusted_exe(tok: str) -> str | None:
+    """Nome do executável só se for um comando do PATH (sem barra) ou um caminho em diretório de sistema.
+    `./cat` ou `scripts/cat` não são o `cat` do sistema."""
+    if "/" not in tok:
+        return tok
+    real = os.path.realpath(os.path.expanduser(tok))
+    return os.path.basename(real) if os.path.dirname(real) in TRUSTED_BIN_DIRS else None
+
+
+def target_dirs(toks: list[str]) -> list[str]:
+    out = []
+    for j, t in enumerate(toks[1:], 1):
+        if (t == "--target-directory" or re.fullmatch(r"-[A-Za-z]*t", t)) and j + 1 < len(toks):
+            out.append(toks[j + 1])  # -t DIR, -st DIR, --target-directory DIR
+        elif t.startswith("--target-directory="):
+            out.append(t.split("=", 1)[1])
+        elif re.match(r"^-[A-Za-z]*t.+", t) and not t.startswith("--"):
+            out.append(t[t.index("t") + 1:])
+    return out
+
+
 def git_subcommand(args: list[str]) -> tuple[str, list[str]]:
     i = 1
     while i < len(args) and args[i].startswith("-"):
@@ -294,6 +336,15 @@ def write_targets(seg: dict) -> list[str]:
         return targets
     cmd = os.path.basename(toks[0])
     args = [t for t in toks[1:] if not t.startswith("-")]
+    if cmd in TARGET_DIR_CMDS:
+        tdirs = target_dirs(toks)
+        if tdirs:
+            targets += tdirs
+            values = set(tdirs)
+            args = [a for a in args if a not in values]
+            if cmd == "mv":
+                targets += args  # mv -t DIR origem…: as origens também são removidas
+            return [t for t in targets if t and t != "/dev/null"]
     if cmd in MUTATING_ALL_ARGS:
         targets += args
     elif cmd in MUTATING_LAST_ARG and args:
@@ -327,6 +378,33 @@ def is_uah_cli(token: str, root: Path) -> bool:
     return real in allowed or (not os.path.isabs(token) and Path(os.path.realpath(root / token)) in allowed)
 
 
+def gate_cli_allowed(script: str, subcommand: str, policy: dict, root: Path) -> bool:
+    """O script precisa estar DENTRO da pasta da skill instalada e verificada da integração — não basta o nome."""
+    real = Path(os.path.realpath(os.path.expanduser(script if os.path.isabs(script) or script.startswith("~")
+                                                     else str(root / script))))
+    installed = {i.get("id"): i for i in policy.get("integrations", [])}
+    for g in policy.get("gate_cli", []):
+        if real.name != g.get("script") or subcommand not in g.get("subcommands", []):
+            continue
+        item = installed.get(g.get("integration")) or {}
+        base = item.get("path")
+        if not base or not item.get("verified"):
+            continue
+        try:
+            real.relative_to(Path(os.path.realpath(base)))
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def uah_subcommand(args: list[str]) -> str | None:
+    i = 2
+    while i < len(args) and args[i].startswith("-"):
+        i += 2 if args[i] == "--root" else 1
+    return args[i] if i < len(args) else None
+
+
 def is_readonly(command: str, policy: dict, root: Path) -> bool:
     if "$(" in command or "`" in command:
         return False
@@ -341,7 +419,9 @@ def is_readonly(command: str, policy: dict, root: Path) -> bool:
         toks = seg["args"]
         if not toks:
             continue
-        cmd = os.path.basename(toks[0])
+        cmd = trusted_exe(toks[0])
+        if cmd is None:
+            return False
         if cmd in simple or cmd in {"cd", "pushd", "popd", "true"}:
             continue
         if cmd == "sed" and not any(re.match(r"-[A-Za-z]*i", t) or t.startswith("--in-place") for t in toks[1:]):
@@ -369,10 +449,8 @@ def is_readonly(command: str, policy: dict, root: Path) -> bool:
             continue
         if cmd.startswith("python") and len(toks) > 1 and is_uah_cli(toks[1], root):
             continue
-        if cmd.startswith("python") and len(toks) > 2 and any(
-                os.path.basename(toks[1]) == g.get("script") and toks[2] in g.get("subcommands", [])
-                for g in policy.get("gate_cli", [])):
-            continue  # CLI de planejamento/leitura de integração ativa
+        if cmd.startswith("python") and len(toks) > 2 and gate_cli_allowed(toks[1], toks[2], policy, root):
+            continue  # CLI de planejamento/leitura de integração ativa, instalada e de origem verificada
         return False
     return True
 
@@ -390,9 +468,11 @@ GATE_MESSAGES = {
 # --------------------------------------------------------------- decisions
 
 def regex_hit(rules: list[dict], command: str) -> dict | None:
+    """Testa as regras no texto bruto E na forma normalizada pelo shell (sem aspas/escapes)."""
+    views = rule_views(command)
     for rule in rules:
         try:
-            if re.search(rule["pattern"], command):
+            if any(re.search(rule["pattern"], view) for view in views):
                 return rule
         except re.error:
             continue
@@ -430,6 +510,20 @@ def grant_covering(policy: dict, command: str) -> dict | None:
     return used
 
 
+def outside_allowed(raw: str, cwd: Path) -> bool:
+    """Fora do projeto, só a área temporária do sistema fica sem confirmação."""
+    import tempfile
+    path = Path(os.path.expanduser(raw))
+    real = Path(os.path.realpath(path if path.is_absolute() else cwd / path))
+    for base in {tempfile.gettempdir(), "/tmp"}:
+        try:
+            real.relative_to(Path(os.path.realpath(base)))
+            return True
+        except ValueError:
+            continue
+    return False
+
+
 def bash_write_rels(command: str, root: Path, cwd: Path) -> list[str] | None:
     segs = parse(command)
     if segs is None:
@@ -459,8 +553,10 @@ def pre_tool_use(payload: dict) -> None:
 
     if policy is None:
         segs = parse(command) if command else None
-        if tool == "Bash" and segs and all(s["args"] and s["args"][0].startswith("python")
-                                           and len(s["args"]) > 1 and is_uah_cli(s["args"][1], root) for s in segs):
+        if tool == "Bash" and segs and "$(" not in command and "`" not in command and all(
+                s["args"] and (trusted_exe(s["args"][0]) or "").startswith("python") and len(s["args"]) > 1
+                and is_uah_cli(s["args"][1], root) and uah_subcommand(s["args"]) in BOOTSTRAP_UAH_SUBCOMMANDS
+                and not s["redirects"] for s in segs):
             sys.exit(0)
         if tool == "Bash" or tool in WRITE_TOOLS:
             emit("deny", "política .uah/policy.json ausente ou inválida; rode `python3 .uah/uah.py compile`.")
@@ -504,7 +600,13 @@ def pre_tool_use(payload: dict) -> None:
         raw = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
         rel = to_rel(root, raw, cwd)
         if rel is None:
-            sys.exit(0)
+            if not raw:
+                emit("deny", "ferramenta de escrita sem caminho de arquivo (fail-closed).")
+            if outside_allowed(raw, cwd):
+                sys.exit(0)
+            if plan_state != "approved":
+                emit("deny", f"gate G1: {gate_msg}. Escrita fora do projeto bloqueada até a aprovação: {raw}")
+            emit("ask", f"escrita FORA do projeto ({raw}); confirme.")
         if matches_any(rel, immutable):
             emit("deny", f"`{rel}` é imutável por política. Para mudar regras, edite project.yaml e rode compile.")
         if plan_state != "approved" and not matches_any(rel, policy.get("plan_gate_paths", [])):
@@ -593,38 +695,79 @@ def porcelain_entries(root: Path) -> list[tuple[str, str]] | None:
     return entries
 
 
+def git_ok(root: Path) -> bool:
+    try:
+        return subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=root, capture_output=True,
+                              timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def committed_since(root: Path, since: float) -> tuple[set[str], float]:
+    """Arquivos alterados em commits feitos depois de `since` (epoch) e o instante do commit mais novo."""
+    try:
+        out = subprocess.run(["git", "-c", "core.quotePath=false", "log", f"--since=@{int(since)}",
+                              "--name-only", "--format=@@%ct"], cwd=root, capture_output=True, timeout=15,
+                             check=True).stdout.decode("utf-8", "replace")
+    except (OSError, subprocess.SubprocessError):
+        return set(), 0.0
+    files, newest = set(), 0.0
+    for line in out.splitlines():
+        if line.startswith("@@"):
+            newest = max(newest, float(line[2:] or 0))
+        elif line.strip():
+            files.add(line.strip())
+    return files, newest
+
+
+def newest_change(root: Path, state_mtime: float) -> float:
+    """Instante da alteração mais nova fora de state/.uah/.omc/.claude — inclui o que já foi commitado."""
+    newest = 0.0
+    if git_ok(root):
+        changed = {rel for _xy, rel in (porcelain_entries(root) or [])}
+        commits, commit_time = committed_since(root, state_mtime)
+        for rel in changed | commits:
+            if rel.startswith(STOP_IGNORED):
+                continue
+            try:
+                newest = max(newest, (root / rel).stat().st_mtime)
+            except OSError:  # removido: vale o instante do commit (ou agora, se não commitado)
+                newest = max(newest, commit_time if rel in commits else now_utc().timestamp())
+        return newest
+    # Sem git: varre o projeto (limitado) — G4 não pode simplesmente liberar.
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root)
+        dirnames[:] = [d for d in dirnames
+                       if d != ".git" and not (os.path.normpath(os.path.join(rel_dir, d)) + "/").startswith(STOP_IGNORED)]
+        for name in filenames:
+            count += 1
+            if count > 20000:
+                return now_utc().timestamp()  # projeto grande demais para varrer: exige checkpoint
+            try:
+                newest = max(newest, os.stat(os.path.join(dirpath, name)).st_mtime)
+            except OSError:
+                continue
+    return newest
+
+
 def stop(payload: dict) -> None:
     root = project_root()
     policy = load_policy(root)
     if not policy or policy.get("g4_checkpoint") != "block" or payload.get("stop_hook_active"):
         return
-    entries = porcelain_entries(root)
-    if not entries:
-        return
-    newest = 0.0
-    for xy, rel in entries:
-        if rel.startswith(STOP_IGNORED):
-            continue
-        if "D" in xy:
-            newest = max(newest, now_utc().timestamp())
-            continue
-        try:
-            newest = max(newest, (root / rel).stat().st_mtime)
-        except OSError:
-            newest = max(newest, now_utc().timestamp())
-    if not newest:
-        return
     try:
         state_mtime = (root / "state" / "current.md").stat().st_mtime
     except OSError:
         state_mtime = 0.0
-    if state_mtime >= newest:
+    newest = newest_change(root, state_mtime)
+    if not newest or state_mtime >= newest:
         return
     print(json.dumps({
         "decision": "block",
-        "reason": "[UAH-lite] G4: há alterações mais novas que state/current.md. Antes de encerrar, rode "
-                  "`python3 .uah/uah.py checkpoint --task <T-xxx> --status <active|paused|blocked|done> "
-                  "--next \"<próxima ação>\"` (e --blocker se houver).",
+        "reason": "[UAH-lite] G4: há alterações (inclusive já commitadas) mais novas que state/current.md. "
+                  "Antes de encerrar, rode `python3 .uah/uah.py checkpoint --task <T-xxx> --status "
+                  "<active|paused|blocked|done> --next \"<próxima ação>\"` (e --blocker se houver).",
     }, ensure_ascii=False))
 
 

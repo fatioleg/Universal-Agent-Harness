@@ -1,4 +1,4 @@
-# UAH-lite (v0.8.2)
+# UAH-lite (v0.8.3)
 
 Implementação mínima e executável da recomendação da auditoria de 11/10/2026: o UAH deixa de ser só
 documentação e passa a **compilar** as regras H0–H3 para o ponto onde elas podem ser aplicadas de fato, ou seja,
@@ -96,8 +96,16 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: 48 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 11 de integrações; 7 de fatias) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 58 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 11 de integrações; 7 de fatias; 10 da auditoria do Codex) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
+
+## Integrações fixadas por commit (v0.8.3)
+
+Cada entrada do catálogo tem `ref` (SHA de 40 caracteres, conferido pelo validador). O comando
+`integrations install` clona o repositório, recusa um clone existente com remoto diferente e faz checkout
+do `ref`. O status mostra se a skill instalada tem **origem verificada** (remoto git = repositório do
+catálogo) e se o commit instalado é o fixado. Só as skills verificadas podem usar as CLIs liberadas antes da
+aprovação (`gate_cli`). Para atualizar uma integração, publique-a, troque o `ref` no catálogo e rode os testes.
 
 ## Limites conhecidos
 

@@ -225,6 +225,8 @@ def main() -> None:
         missing_keys = integration_keys - set(entry)
         if missing_keys:
             fail(f"{entry_path.name}: missing integration fields {sorted(missing_keys)}")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(entry.get("ref", ""))):
+            fail(f"{entry_path.name}: ref must be a pinned 40-char commit SHA")
         if entry["id"] != entry_path.stem:
             fail(f"{entry_path.name}: id {entry['id']!r} must match the file name")
         policy = entry.get("policy", {})

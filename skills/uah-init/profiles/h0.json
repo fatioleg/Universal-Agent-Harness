@@ -87,11 +87,23 @@
   ],
   "settings": {
     "allow": [],
-    "ask": [],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh release:*)",
+      "Bash(npm publish:*)",
+      "Bash(twine upload:*)",
+      "Bash(scp:*)",
+      "Bash(sudo:*)"
+    ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
-      "Read(./secrets/**)"
+      "Read(./secrets/**)",
+      "Bash(gh repo delete:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
     ]
   },
   "plan_gate": false,
