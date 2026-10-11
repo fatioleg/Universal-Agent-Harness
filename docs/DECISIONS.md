@@ -163,3 +163,24 @@
   a tag/commit or release checksum and materialize only their resolved harness.
 - Rejected: using GitHub “Use this template” as the primary mechanism, because
   copying the full tree causes template drift.
+
+## AD-014 — v0.6.0: UAH-lite compiles policy into the runtime
+
+- Status: accepted
+- Date: 2026-10-11
+- Context: the 2026-10-11 integration report and feasibility audit found that the
+  repository had ~46k words of Markdown and 255 lines of code; H0–H3 merge,
+  permissions, and evals depended on LLM interpretation. OMC 5.4 already provides
+  interview, planning with approval boundary, capability lock, durable goal
+  ledger, checkpoints, and worktree teams.
+- Decision: implement only the residual responsibility of UAH as a small skill
+  (`skills/uah-init`): a deterministic fail-closed resolver whose output is
+  Claude Code `permissions` and hooks (the only real enforcement point), a plan
+  approval gate bound to the plan hash, and versioned resume state. Integrate
+  OMC by artifacts, not command names, and pin it with `omc capabilities lock`.
+- Rejected: own policy engine outside the runtime (cannot block tools); own
+  interviewer/planner/ledger/scheduler/memory (duplicates OMC/Claude Code);
+  ai-memory and parallelism by default (deferred until a pilot shows need).
+- Consequences: AD-003's "no automatic resolver" is superseded for the risk/
+  permission subset only; archetype classification remains agent-assisted.
+  Bash analysis is heuristic and documented as such.

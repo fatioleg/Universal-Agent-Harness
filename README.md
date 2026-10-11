@@ -21,7 +21,14 @@ autoridade** (sources imutáveis, representações derivadas).
 
 ## Como usar em um projeto novo
 
-Você tem três caminhos:
+**Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez
+(`ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init`) e rode
+`/uah-init` no Claude Code dentro do projeto. Ela cria 5 arquivos curtos,
+compila H0–H3 em `permissions` e hooks do Claude Code, exige plano aprovado
+por humano antes de alterações materiais (risco medium/high) e mantém
+`state/current.md` para retomada. Detalhes: [`docs/uah-lite.md`](docs/uah-lite.md).
+
+Caminhos declarativos anteriores (continuam válidos):
 
 1. **Caminho mais leve** — referencie este repositório como
    submódulo Git ou clone fixado em `.harness/upstream` no seu
@@ -449,7 +456,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.3.0
+├── VERSION                   # 0.6.0 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -459,7 +466,7 @@ Universal-Agent-Harness/
 │   ├── merge-policy.yaml     # resolução tipada H0-H3
 │   ├── principles/           # 9 princípios em prosa
 │   ├── policies/             # override-protocol.md
-│   ├── schemas/extension/    # 8 schemas de runtime
+│   ├── schemas/extension/    # 11 schemas de runtime
 │   └── evals/                # (placeholder)
 │
 ├── archetypes/               # 11 padrões de referência (não H1)
@@ -473,21 +480,26 @@ Universal-Agent-Harness/
 ├── schemas/                  # project-input, resolved-harness
 │
 ├── skills/classify-project/  # skill interativa
+├── skills/uah-init/          # UAH-lite (executável): uah.py, hooks/uah_guard.py,
+│                             # profiles/ (H0 + risco H1), templates/
+│
+├── tests/test_uah_lite.py    # testes comportamentais (AT-01/02/03/05/07/09/14)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
 ├── docs/                     # ARCHITECTURE, agent-topology,
 │                             # autonomy-levels, glossary, references,
 │                             # sdd, knowledge-digestion, tdd,
-│                             # brownfield, adr-template, DECISIONS
+│                             # brownfield, adr-template, DECISIONS,
+│                             # uah-lite
 │
 ├── evals/
-│   ├── bootstrap-cases.yaml  # cases para validar este repo
+│   ├── bootstrap-cases.yaml  # cases BEVAL-* para validar este repo
 │   └── catalog.md            # 10 categorias universais
 │
 ├── examples/                 # placeholder
 │
-├── scripts/validate_repo.py  # validador (roda local e em CI)
+├── scripts/validate_repo.py  # validador estático (roda local e em CI)
 │
 └── .github/workflows/validate.yml
 ```
@@ -499,21 +511,28 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-O mesmo validador roda no GitHub Actions. Saída esperada em
-v0.5.0:
+python -m unittest discover -s tests -v   # testes comportamentais do UAH-lite
+```
+
+O validador e os testes rodam no GitHub Actions. Saída esperada do
+validador em v0.6.0:
 
 ```text
-PASS: Universal Agent Harness 0.5.0
-PASS: 89 required files
+PASS: Universal Agent Harness 0.6.0
+PASS: 102 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
 PASS: 11 extension schemas
 PASS: 12 tool contracts
+PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 ```
 
 ## Status
 
-Versão **0.5.0**. Núcleo multiplataforma, 11 arquétipos de
+Versão **0.6.0**. Inclui o UAH-lite (`skills/uah-init`), primeira
+parte executável: resolvedor H0–H3 determinístico compilado para o
+Claude Code, gate de plano aprovado e checkpoint de retomada, com
+testes comportamentais. Núcleo multiplataforma, 11 arquétipos de
 referência, 11 schemas de runtime (incluindo AC, Test,
 ChangeRequest), skill de classificação, 12 contratos de
 ferramentas (sem implementações), catálogo universal de

@@ -1,0 +1,16 @@
+{
+  "layer": "H1",
+  "description": "Risco alto: resultado científico publicável, dados originais, dinheiro ou terceiros. Gate de plano, checkpoint G4 obrigatório e confirmação para instalar pacotes, acesso remoto e qualquer remoção.",
+  "immutable_paths": [],
+  "protected_paths": [],
+  "bash_deny": [],
+  "bash_ask": [
+    {"id": "H1H-rm", "pattern": "\\brm\\b", "reason": "qualquer remoção de arquivo"},
+    {"id": "H1H-rewrite", "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b", "reason": "reescrita de histórico"},
+    {"id": "H1H-ssh", "pattern": "\\bssh\\b", "reason": "execução em máquina remota"},
+    {"id": "H1H-install", "pattern": "\\b(pip3?|uv\\s+pip|conda|mamba|npm|pnpm|yarn|cargo|apt(-get)?)\\s+(install|add|i)\\b", "reason": "instalação de dependência (cadeia de suprimentos)"}
+  ],
+  "settings": {"allow": [], "ask": [], "deny": []},
+  "plan_gate": true,
+  "g4_checkpoint": "block"
+}

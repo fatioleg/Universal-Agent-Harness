@@ -1,7 +1,8 @@
+# schema_version = formato deste arquivo; a versão do produto fica só em VERSION.
 schema_version: "0.2"
 harness:
   id: universal-agent-harness
-  version: "0.2.0"
+  release_version_source: VERSION
   mode: cross-platform-declarative-bootstrap
 
 principles:

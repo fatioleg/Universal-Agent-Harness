@@ -66,6 +66,20 @@
   PASS-WITH-NOTES, 0 critical, 0 important, 6 minor all
   AD-documented.
 
+## 0.6.0 — 2026-10-11
+
+- fixed CI: `actions/setup-python` cache now points to `requirements-dev.txt`; CI also runs behavioral tests;
+- single product version: `VERSION` is the only release version; `core/universal.yaml` no longer declares
+  `harness.version`; lock template pins `universal-agent-harness@0.6.0`; validator enforces consistency;
+- bootstrap cases moved to the `BEVAL-*` namespace (`EVAL-*` stays the universal catalog);
+- added UAH-lite (`skills/uah-init/`): `uah.py` (init, compile, import-plan, approve, task, checkpoint, preflight),
+  stdlib-only Claude Code hook `uah_guard.py` (PreToolUse, SessionStart, Stop), H0 and risk H1 profiles, templates;
+- deterministic fail-closed H0–H3 resolver compiled to `.claude/settings.json` permissions and hooks;
+- plan approval bound to the sha256 of the plan body (G1); checkpoint/resume state in `state/current.md` (G4);
+- OMC bound by artifacts (`.omc/plans`, `.omc/specs`) and pinned with `omc capabilities lock/check`;
+- added `tests/test_uah_lite.py` (16 behavioral tests covering AT-01/02/03/05/07/09/14) and `docs/uah-lite.md`;
+- documented AD-014.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

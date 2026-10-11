@@ -2,7 +2,7 @@ schema_version: "0.2"
 purpose: representative_bootstrap_outcomes
 
 cases:
-  - id: EVAL-001-simple-document
+  - id: BEVAL-001-simple-document
     input:
       lifecycle: document
       target_agents: [codex]
@@ -14,7 +14,7 @@ cases:
       generated_files: [AGENTS.md, project.yaml, harness.lock.yaml]
       forbidden: [semantic-index, graph, multiagent-team, session-memory-tree]
 
-  - id: EVAL-002-scientific-literature-review
+  - id: BEVAL-002-scientific-literature-review
     input:
       lifecycle: research
       target_agents: [codex, claude-code]
@@ -28,7 +28,7 @@ cases:
       conditional_files: [state/current.md, sources/manifest.jsonl]
       forbidden: [graph-by-default, corpus-wide-compression]
 
-  - id: EVAL-003-computational-chemistry
+  - id: BEVAL-003-computational-chemistry
     input:
       lifecycle: research
       specialist_execution: true
@@ -39,7 +39,7 @@ cases:
       capabilities: [scientific-evidence, computational-execution]
       requirements: [domain-validators, reproducibility, human-method-gate]
 
-  - id: EVAL-004-modular-software
+  - id: BEVAL-004-modular-software
     input:
       lifecycle: build
       parallelizable: false
@@ -49,7 +49,7 @@ cases:
       requirements: [tests, build-check, visible-failures]
       forbidden: [parallel-specialists-without-independent-work]
 
-  - id: EVAL-005-knowledge-base
+  - id: BEVAL-005-knowledge-base
     input:
       lifecycle: knowledge
       corpus_size: medium
@@ -59,7 +59,7 @@ cases:
       capabilities: [source-ingestion, normalization, cataloging, lexical-retrieval]
       forbidden: [graph, semantic-retrieval-without-need]
 
-  - id: EVAL-006-adversarial-override
+  - id: BEVAL-006-adversarial-override
     input:
       attempts:
         - remove-provenance
@@ -69,7 +69,7 @@ cases:
       status: BLOCK
       failures: [locked-invariant, permission-expansion, source-integrity]
 
-  - id: EVAL-007-version-migration
+  - id: BEVAL-007-version-migration
     input:
       current_H0: "0.1.0"
       proposed_H0: "0.2.0"
@@ -77,7 +77,7 @@ cases:
       requirements: [explicit-diff, schema-validation, eval-run, new-lock]
       forbidden: [silent-upgrade]
 
-  - id: EVAL-008-cross-platform-entrypoints
+  - id: BEVAL-008-cross-platform-entrypoints
     input:
       target_agents: [codex, codex-cloud, claude-code]
       risk: low

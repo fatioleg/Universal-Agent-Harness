@@ -109,6 +109,20 @@ REQUIRED_FILES = [
     "docs/tdd.md",
     "docs/brownfield.md",
     "docs/adr-template.md",
+    # v0.6.0 additions (UAH-lite)
+    "docs/uah-lite.md",
+    "skills/uah-init/SKILL.md",
+    "skills/uah-init/uah.py",
+    "skills/uah-init/hooks/uah_guard.py",
+    "skills/uah-init/profiles/h0.json",
+    "skills/uah-init/profiles/risk-low.json",
+    "skills/uah-init/profiles/risk-medium.json",
+    "skills/uah-init/profiles/risk-high.json",
+    "skills/uah-init/templates/project.yaml",
+    "skills/uah-init/templates/plan.md",
+    "skills/uah-init/templates/state.md",
+    "skills/uah-init/templates/entrypoint-block.md",
+    "tests/test_uah_lite.py",
 ]
 
 
@@ -179,6 +193,31 @@ def main() -> None:
 
     cases = yaml_docs["evals/bootstrap-cases.yaml"]["cases"]
     require_unique(cases, "id", "eval IDs")
+    wrong_namespace = [c["id"] for c in cases if not c["id"].startswith("BEVAL-")]
+    if wrong_namespace:
+        fail(f"bootstrap cases must use the BEVAL- namespace (EVAL- is the catalog): {wrong_namespace}")
+
+    # v0.6.0: one product version (VERSION); schema versions are separate.
+    universal_harness = yaml_docs["core/universal.yaml"].get("harness", {})
+    if "version" in universal_harness:
+        fail("core/universal.yaml must not declare harness.version; the release version lives in VERSION")
+    lock_h0 = lock_template["source_versions"]["H0"]
+    if lock_h0 != f"universal-agent-harness@{version}":
+        fail(f"lock template pins {lock_h0!r}, expected universal-agent-harness@{version}")
+    for relative, constant in (
+        ("skills/uah-init/uah.py", "UAH_LITE_VERSION"),
+        ("skills/uah-init/hooks/uah_guard.py", "GUARD_VERSION"),
+    ):
+        match = re.search(rf'^{constant} = "([^"]+)"', (ROOT / relative).read_text(encoding="utf-8"), re.M)
+        if not match or match.group(1) != version:
+            fail(f"{relative} {constant} must equal VERSION {version}")
+    for profile in sorted((ROOT / "skills/uah-init/profiles").glob("*.json")):
+        data = json.loads(profile.read_text(encoding="utf-8"))
+        for rule in data.get("bash_deny", []) + data.get("bash_ask", []):
+            try:
+                re.compile(rule["pattern"])
+            except re.error as exc:
+                fail(f"{profile.name}: invalid regex in {rule.get('id')}: {exc}")
 
     for entrypoint in ("AGENTS.md", "CLAUDE.md"):
         size = (ROOT / entrypoint).stat().st_size
@@ -249,6 +288,7 @@ def main() -> None:
     print(f"PASS: {len(cases)} bootstrap eval cases")
     print(f"PASS: {len(extension_schemas)} extension schemas")
     print(f"PASS: {len(tool_contracts)} tool contracts")
+    print("PASS: version consistency (VERSION, lock template, UAH-lite runtime)")
 
 
 if __name__ == "__main__":

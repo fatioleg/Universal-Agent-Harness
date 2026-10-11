@@ -1,0 +1,22 @@
+# UAH-lite — configuração H2 do projeto.
+# Depois de editar, rode: python3 .uah/uah.py compile
+uah_lite: "1"
+project:
+  id: {{project_id}}
+  title: "{{title}}"
+  domains: []            # ex.: [literatura, quimica-computacional, software, fomento]
+risk: {{risk}}           # low | medium | high (escolhe o overlay H1 em .uah/profiles/)
+runtime:
+  python: {{python}}     # comando que os hooks usam (no Windows nativo, normalmente "python")
+policy:
+  immutable_paths: []    # nunca alterar, ex.: ["data/raw/**", "references/pdfs/**"]
+  protected_paths: []    # alterar só com confirmação
+  bash_deny: []          # regex ou {id, pattern, reason}
+  bash_ask: []
+  settings_allow: []     # regras do Claude Code, ex.: "Bash(pytest:*)"
+  settings_ask: []
+  settings_deny: []
+  grantable: []          # concessões que o H3 pode ativar por tempo limitado:
+                         #   - {id: push-branch, pattern: '^git push origin feat/\S+$', reason: '...'}
+  # plan_gate: true      # só pode endurecer; não desliga o que o risco exige
+  # g4_checkpoint: block # off | block

@@ -1,0 +1,11 @@
+{
+  "layer": "H1",
+  "description": "Risco baixo: projeto trivial ou exploratório. Sem gate de plano nem checkpoint obrigatório; só os invariantes H0.",
+  "immutable_paths": [],
+  "protected_paths": [],
+  "bash_deny": [],
+  "bash_ask": [],
+  "settings": {"allow": [], "ask": [], "deny": []},
+  "plan_gate": false,
+  "g4_checkpoint": "off"
+}

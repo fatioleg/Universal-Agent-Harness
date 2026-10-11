@@ -12,3 +12,7 @@ CLAUDE.local.md
 AGENTS.override.md
 .harness-work/
 
+
+# OMC runtime state (may contain transcripts); project skills are the exception
+.omc/*
+!.omc/skills/

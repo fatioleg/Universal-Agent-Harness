@@ -1,0 +1,14 @@
+{
+  "layer": "H1",
+  "description": "Risco médio: trabalho com entregável real (artigo, análise, código). Exige plano aprovado antes de alterações materiais.",
+  "immutable_paths": [],
+  "protected_paths": [],
+  "bash_deny": [],
+  "bash_ask": [
+    {"id": "H1M-rm-recursive", "pattern": "\\brm\\s+(-\\S+\\s+)*-\\S*[rR]", "reason": "remoção recursiva"},
+    {"id": "H1M-rewrite", "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b", "reason": "reescrita de histórico"}
+  ],
+  "settings": {"allow": [], "ask": [], "deny": []},
+  "plan_gate": true,
+  "g4_checkpoint": "off"
+}
