@@ -1,4 +1,4 @@
-# UAH-lite (v0.7.0)
+# UAH-lite (v0.8.0)
 
 Implementação mínima e executável da recomendação da auditoria de 11/10/2026: o UAH deixa de ser só
 documentação e passa a **compilar** as regras H0–H3 para o ponto onde elas podem ser aplicadas de fato, ou seja,
@@ -59,6 +59,27 @@ e recompila). `install` e `enable` pedem confirmação humana.
 O Workflow_Digestion implementa, na prática, os contratos `markitdown-normalize`, `graphify-build` e
 `obsidian-interface` de `contracts/tools/`.
 
+## Fatias de MVP (v0.8.0)
+
+Para projetos incrementais: `plan/approved.md` é o plano geral (aprovado uma vez) e `plan/slices/slice-N.md`
+são fatias aprovadas uma a uma (`approve --slice N`, sempre com confirmação humana e exigindo o plano geral
+aprovado). Depois da primeira fatia (`.uah/slices.lock.json` com `mode: true`), o gate G1 só libera execução com
+uma fatia **ativa, aprovada e inalterada**. `slice done N` fecha o gate até a próxima fatia.
+
+| Comando | Efeito |
+|---|---|
+| `import-plan .omc/plans/slice-N.md --slice N` | traz a fatia planejada pelo `omc-plan` (rascunho) |
+| `slice new N [--title …]` | cria a fatia a partir do template SDD (REQ, AC, fora do escopo, testes, critério de abandono, agente executor) |
+| `approve --slice N` | aprova e ativa a fatia |
+| `slice` / `slice list` | estado de cada fatia e qual está ativa |
+| `slice activate N` | troca a fatia ativa (o gate segue o estado de aprovação dela) |
+| `slice done N` | conclui a fatia e fecha o gate até a próxima |
+
+O `checkpoint` registra a fatia ativa e, com o specboard ativo, lembra de rodar `specboard.py validate && build`.
+A `SKILL.md` traz um modelo de prompt para `/oh-my-claudecode:omc-plan --consensus` que pede só o plano da fatia,
+porque o `omc-plan` não edita arquivos nem gera painéis antes da aprovação. O painel fica com o specboard, e a
+orquestração com o bloco UAH no `CLAUDE.md`.
+
 ## `explain`
 
 `uah.py explain` mostra as regras efetivas em linguagem simples: risco, gates, caminhos imutáveis e protegidos, o que
@@ -73,7 +94,7 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: 39 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 9 de integrações) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 46 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 9 de integrações; 7 de fatias) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
 
 ## Limites conhecidos

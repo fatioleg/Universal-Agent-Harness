@@ -1,6 +1,6 @@
 ---
 name: uah-init
-description: "UAH-lite: prepara qualquer projeto (artigo, revisão de literatura, simulação molecular, software, edital) com o harness mínimo e proporcional ao risco: 5 arquivos (CLAUDE.md/AGENTS.md curtos, project.yaml, plan/approved.md, state/current.md), permissões e hooks do Claude Code compilados de H0–H3, gate de plano aprovado por humano (G1) e checkpoint de retomada (G4). Use quando o usuário disser \"/uah-init\", \"iniciar harness\", \"preparar projeto com UAH\", \"aprovar o plano\", \"checkpoint\", \"retomar o projeto\", \"status do UAH\", ou ao abrir um projeto que já tem .uah/. Integra, quando necessário, Workflow_Digestion (documentos → corpus → grafo → Obsidian), specboard (painel de validação de módulos) e CalcBoard (painel de cálculos). Subcomandos: (vazio)=init, approve, checkpoint, status, task, compile, explain, integrations."
+description: "UAH-lite: prepara qualquer projeto (artigo, revisão de literatura, simulação molecular, software, edital) com o harness mínimo e proporcional ao risco: 5 arquivos (CLAUDE.md/AGENTS.md curtos, project.yaml, plan/approved.md, state/current.md), permissões e hooks do Claude Code compilados de H0–H3, gate de plano aprovado por humano (G1) e checkpoint de retomada (G4). Use quando o usuário disser \"/uah-init\", \"iniciar harness\", \"preparar projeto com UAH\", \"aprovar o plano\", \"checkpoint\", \"retomar o projeto\", \"status do UAH\", ou ao abrir um projeto que já tem .uah/. Integra, quando necessário, Workflow_Digestion (documentos → corpus → grafo → Obsidian), specboard (painel de validação de módulos) e CalcBoard (painel de cálculos). Suporta desenvolvimento incremental por fatias de MVP (plano geral + slice-N aprovadas uma a uma, com omc-plan e specboard). Subcomandos: (vazio)=init, approve, checkpoint, status, task, compile, explain, integrations, slice."
 ---
 
 # UAH-lite — harness mínimo por projeto
@@ -53,9 +53,35 @@ Regras que o guard aplica às integrações:
 - **specboard:** `review`/`verify` e `.specboard/verificacoes.jsonl` são só do humano. Antes da aprovação, o agente pode editar `.specboard/**` e rodar `specboard.py init|validate|queue|build|lock|amend`.
 - **calcboard:** antes da aprovação, só `painel.py ler`. O `gerar` vem depois do approve.
 
+## Fatias de MVP (SDD incremental): `/uah-init slice`
+
+Use quando o projeto avança em incrementos: um **plano geral** (`plan/approved.md`, aprovado uma vez) e
+**fatias** (`plan/slices/slice-N.md`), cada uma aprovada antes de ser implementada. Depois da primeira fatia,
+o guard só libera execução se houver uma fatia **ativa, aprovada e inalterada**.
+
+Fluxo de cada fatia:
+1. **Planejar com o OMC (só planejamento).** O `omc-plan` não edita arquivos nem gera painéis antes da aprovação, então peça apenas o plano da fatia. Modelo de prompt (troque N):
+   ```
+   /oh-my-claudecode:omc-plan --consensus "Crie .omc/plans/slice-N.md: a fatia N (MVP) do plano geral em
+   .omc/plans/, coerente com a spec da deep-interview em .omc/specs/ e com o ADR do planejamento prévio.
+   Formato SDD: objetivo da fatia; depende de; dentro e fora do escopo; requisitos REQ-N.x; critérios de
+   aceite AC-N.x ligados aos REQ; contratos/interfaces; plano de testes; critério de abandono; tarefas
+   T-N.x com 'pronto quando'; agente executor sugerido (designer para UI, executor para o resto)."
+   ```
+   Sem o OMC, crie a fatia com `python3 .uah/uah.py slice new N --title "..."`. O template já traz as seções SDD.
+2. **Trazer para o UAH:** `python3 .uah/uah.py import-plan .omc/plans/slice-N.md --slice N`.
+3. **Painel (se o specboard estiver ativo):** rode `/specboard` para refletir a fatia como módulo(s), com contratos e etapas. Mostre o painel ao usuário para apoiar a revisão.
+4. **Aprovar:** pergunte com `AskUserQuestion`. Com o "sim", rode `python3 .uah/uah.py approve --slice N`. A fatia fica ativa e o guard pede confirmação humana.
+5. **Executar:** delegue ao agente indicado na fatia. Use o `designer` do OMC **só para interface/UI**. Para código, dados ou cálculo, use o `executor`; para texto, o `writer`. A cada etapa, faça `checkpoint` e, com o specboard ativo, `specboard.py validate && build`, marcando a etapa como `executado` com evidência. O usuário faz `review`/`verify`.
+6. **Encerrar a fatia:** quando todos os AC estiverem verificados pelo usuário, rode `python3 .uah/uah.py slice done N`. O gate fecha até a próxima fatia ser aprovada.
+
+Para ver o estado das fatias: `python3 .uah/uah.py slice`. A fatia ativa e o estado dela aparecem no resumo do início da sessão.
+
+**O CLAUDE.md não vira orquestrador:** memória, contexto, estado, regras, skills e integrações já chegam pelo bloco UAH, pelo `state/current.md` e pelo resumo da sessão. Mantenha o `CLAUDE.md` curto. Se o usuário quiser um mapa de agentes/skills do projeto, crie `docs/agentes.md` e aponte para ele em uma linha.
+
 ## `/uah-init approve`
 
-Revise com o usuário o `plan/approved.md` atual. Se ele aprovar, rode `python3 .uah/uah.py approve`.
+Revise com o usuário o `plan/approved.md` atual (ou a fatia: `plan/slices/slice-N.md`). Se ele aprovar, rode `python3 .uah/uah.py approve` (ou `approve --slice N`).
 Se o comando recusar o plano por estar incompleto, complete o plano. Use `--allow-incomplete` somente se o usuário pedir explicitamente; a exceção fica registrada.
 Qualquer edição posterior no corpo do plano reabre o gate até a nova aprovação.
 

@@ -11,6 +11,11 @@ Comandos:
   preflight    verifica política, hooks, plano, estado, git e versões antes de retomar
   explain      mostra, em linguagem simples, as regras efetivas e de que camada vêm
   integrations lista/instala/ativa ferramentas externas do fluxo (workflow-digestion, specboard, calcboard)
+  slice        fatias de MVP (SDD incremental): list | new N | activate N | done N
+
+Fatias: plan/approved.md é o plano geral (aprovado uma vez); plan/slices/slice-N.md são fatias
+aprovadas uma a uma (`approve --slice N`). Depois da primeira fatia, o gate G1 só libera
+execução com uma fatia ATIVA e aprovada (e sem mudanças desde a aprovação).
 
 Regras de resolução (typed merge, fail-closed):
   - listas de deny/ask/imutáveis só crescem; nenhuma camada remove o que a superior definiu;
@@ -40,7 +45,7 @@ except ImportError:  # pragma: no cover - mensagem para o operador
     print("UAH-lite precisa de PyYAML: python3 -m pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-UAH_LITE_VERSION = "0.7.0"
+UAH_LITE_VERSION = "0.8.0"
 HERE = Path(__file__).resolve().parent
 RISKS = ("low", "medium", "high")
 G4_ORDER = {"off": 0, "block": 1}
@@ -799,9 +804,14 @@ def cmd_explain(root: Path) -> None:
     print(f"Projeto `{pol['project']['id']}` — {pol['project'].get('title') or ''}".rstrip(" —"))
     print(f"Risco: {pol['risk']} · gate de plano (G1): {yes(pol['plan_gate'])} · checkpoint obrigatório (G4): "
           f"{yes(pol['g4_checkpoint'] == 'block')}")
-    state = "aprovado" if read_json(runtime_dir(root) / "plan.lock.json") else "não aprovado"
+    state = "aprovado" if master_approved(root) else "não aprovado"
+    sl = slices_lock(root)
     if pol["plan_gate"]:
-        print(f"  Plano {state}. Antes da aprovação o agente só lê e edita: {', '.join(pol['plan_gate_paths'])}")
+        print(f"  Plano geral {state}. Antes da aprovação o agente só lê e edita: {', '.join(pol['plan_gate_paths'])}")
+        if sl["mode"]:
+            act = sl["active"]
+            print(f"  Modo fatias: a execução exige fatia ativa e aprovada. Ativa: "
+                  + (f"{act} ({_slice_state(root, act, sl)})" if act else "nenhuma — gate fechado"))
         if pol["gate_cli"]:
             print("  CLIs liberadas antes da aprovação: " + "; ".join(
                 f"{g['script']} {'/'.join(g['subcommands'])} ({g['integration']})" for g in pol["gate_cli"]))
@@ -825,27 +835,84 @@ def cmd_explain(root: Path) -> None:
     print("\nPrefixos dos ids: H0 universal · H1M/H1H risco · INT-* integração · H2 projeto · H3 tarefa.")
 
 
-def cmd_import_plan(root: Path, src: Path) -> None:
+SLICE_RE = re.compile(r"^[0-9]+[a-z]?$")
+EMPTY_SLICES = {"mode": False, "active": None, "approved": {}, "done": []}
+
+
+def slice_path(root: Path, n: str) -> Path:
+    return root / "plan" / "slices" / f"slice-{n}.md"
+
+
+def slices_lock(root: Path) -> dict:
+    data = read_json(runtime_dir(root) / "slices.lock.json", None)
+    if not isinstance(data, dict):
+        return json.loads(json.dumps(EMPTY_SLICES))
+    for key, value in EMPTY_SLICES.items():
+        data.setdefault(key, json.loads(json.dumps(value)))
+    return data
+
+
+def write_slices_lock(root: Path, data: dict) -> None:
+    write_json(runtime_dir(root) / "slices.lock.json", data)
+
+
+def _check_slice_id(n: str) -> str:
+    n = str(n).strip()
+    _expect(bool(SLICE_RE.match(n)), f"id de fatia inválido {n!r} (use 1, 2, 3a…)")
+    return n
+
+
+def _slice_state(root: Path, n: str, lock: dict) -> str:
+    path = slice_path(root, n)
+    if not path.is_file():
+        return "ausente"
+    entry = lock["approved"].get(n)
+    if not entry:
+        return "rascunho"
+    if entry.get("sha256") != body_sha(path.read_text(encoding="utf-8")):
+        return "modificada após aprovação"
+    return "concluída" if n in lock["done"] else "aprovada"
+
+
+def master_approved(root: Path) -> bool:
+    plan = root / "plan" / "approved.md"
+    lock = read_json(runtime_dir(root) / "plan.lock.json")
+    return bool(lock and plan.is_file() and lock.get("sha256") == body_sha(plan.read_text(encoding="utf-8")))
+
+
+def cmd_import_plan(root: Path, src: Path, slice_id: str | None = None) -> None:
     _expect(src.is_file(), f"arquivo não encontrado: {src}")
     text = src.read_text(encoding="utf-8")
     _, body = split_frontmatter(text)
     home = str(Path.home())
     body = body.replace(home, "~")
-    plan = root / "plan" / "approved.md"
     project_id = (load_h2(root).get("project") or {}).get("id", "")
     try:
         rel = src.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         rel = src.name
     meta = {"status": "draft", "project_id": project_id, "source": rel, "imported_at": now_iso()}
-    header = (f"> Importado de `{rel}`. Revise e complete (escopo, entregáveis com aceite, tarefas T-xxx) "
-              "antes de aprovar.\n\n")
-    was_approved = (runtime_dir(root) / "plan.lock.json").is_file()
-    plan.parent.mkdir(parents=True, exist_ok=True)
-    plan.write_text(join_frontmatter(meta, header + body.strip() + "\n"), encoding="utf-8")
-    print(f"import-plan: {rel} -> plan/approved.md (draft)")
+    if slice_id is not None:
+        n = _check_slice_id(slice_id)
+        target = slice_path(root, n)
+        meta["slice"] = n
+        header = (f"> Fatia {n} importada de `{rel}`. Revise (requisitos REQ, aceite AC, fora do escopo, "
+                  "critério de abandono) antes de `approve --slice`.\n\n")
+        lock = slices_lock(root)
+        was_approved = n in lock["approved"]
+        lock["mode"] = True
+        write_slices_lock(root, lock)
+    else:
+        target = root / "plan" / "approved.md"
+        header = (f"> Importado de `{rel}`. Revise e complete (escopo, entregáveis com aceite, tarefas T-xxx) "
+                  "antes de aprovar.\n\n")
+        was_approved = (runtime_dir(root) / "plan.lock.json").is_file()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(join_frontmatter(meta, header + body.strip() + "\n"), encoding="utf-8")
+    dest = target.relative_to(root).as_posix()
+    print(f"import-plan: {rel} -> {dest} (draft)")
     if was_approved:
-        print("Atenção: havia plano aprovado; o novo conteúdo reabre o gate G1 até nova aprovação.")
+        print("Atenção: havia versão aprovada; o novo conteúdo reabre o gate G1 até nova aprovação.")
 
 
 PLAN_REQUIRED = {
@@ -854,30 +921,107 @@ PLAN_REQUIRED = {
 }
 
 
-def cmd_approve(root: Path, by: str | None, allow_incomplete: bool) -> None:
-    plan = root / "plan" / "approved.md"
-    _expect(plan.is_file(), "plan/approved.md não existe")
-    text = plan.read_text(encoding="utf-8")
+def _approve_file(path: Path, allow_incomplete: bool, by: str, extra_meta: dict, label: str) -> tuple[str, list[str]]:
+    text = path.read_text(encoding="utf-8")
     meta_raw, body = split_frontmatter(text)
-    _expect(len(body.strip()) > 40, "plano vazio")
+    _expect(len(body.strip()) > 40, f"{label} vazio")
     missing = [name for name, rx in PLAN_REQUIRED.items() if not re.search(rx, body)]
     if missing and not allow_incomplete:
-        raise PolicyError(f"plano incompleto: falta {', '.join(missing)} (use --allow-incomplete para registrar a exceção)")
+        raise PolicyError(f"{label} incompleto: falta {', '.join(missing)} "
+                          "(use --allow-incomplete para registrar a exceção)")
     digest = body_sha(text)
-    by = by or run(["git", "config", "user.name"], cwd=root) or os.environ.get("USER", "desconhecido")
-    lock = {"sha256": digest, "approved_by": by, "approved_at": now_iso(), "plan_path": "plan/approved.md",
-            "uah_lite_version": UAH_LITE_VERSION, "warnings": [f"incompleto: {m}" for m in missing]}
     try:
         meta = yaml.safe_load(meta_raw) if meta_raw else {}
     except yaml.YAMLError:
         meta = {}
     meta = meta if isinstance(meta, dict) else {}
-    meta.update({"status": "approved", "approved_by": by, "approved_at": lock["approved_at"], "revision": digest[:12]})
-    plan.write_text(join_frontmatter(meta, body), encoding="utf-8")
-    _expect(body_sha(plan.read_text(encoding="utf-8")) == digest, "falha ao regravar o plano sem alterar o corpo")
+    meta.update({"status": "approved", "approved_by": by, "approved_at": now_iso(), "revision": digest[:12]}, **extra_meta)
+    path.write_text(join_frontmatter(meta, body), encoding="utf-8")
+    _expect(body_sha(path.read_text(encoding="utf-8")) == digest, "falha ao regravar sem alterar o corpo")
+    return digest, missing
+
+
+def cmd_approve(root: Path, by: str | None, allow_incomplete: bool, slice_id: str | None = None) -> None:
+    by = by or run(["git", "config", "user.name"], cwd=root) or os.environ.get("USER", "desconhecido")
+    if slice_id is not None:
+        n = _check_slice_id(slice_id)
+        path = slice_path(root, n)
+        _expect(path.is_file(), f"{path.relative_to(root)} não existe (import-plan --slice {n} ou slice new {n})")
+        _expect(master_approved(root), "aprove (ou reaprove) o plano geral plan/approved.md antes das fatias")
+        digest, missing = _approve_file(path, allow_incomplete, by, {}, f"fatia {n}")
+        lock = slices_lock(root)
+        lock["mode"] = True
+        lock["approved"][n] = {"sha256": digest, "approved_by": by, "approved_at": now_iso(),
+                               "path": path.relative_to(root).as_posix(),
+                               "warnings": [f"incompleto: {m}" for m in missing]}
+        lock["active"] = n
+        if n in lock["done"]:
+            lock["done"].remove(n)
+        _update_state(root, {"slice": n}, f"fatia {n} aprovada por {by} (rev {digest[:12]}) e ativa")
+        write_slices_lock(root, lock)  # por último
+        print(f"approve: fatia {n} rev {digest[:12]} aprovada por {by} e ATIVA. Gate G1 liberado para esta fatia.")
+        return
+    plan = root / "plan" / "approved.md"
+    _expect(plan.is_file(), "plan/approved.md não existe")
+    digest, missing = _approve_file(plan, allow_incomplete, by, {}, "plano")
+    lock = {"sha256": digest, "approved_by": by, "approved_at": now_iso(), "plan_path": "plan/approved.md",
+            "uah_lite_version": UAH_LITE_VERSION, "warnings": [f"incompleto: {m}" for m in missing]}
     _update_state(root, {"plan_revision": digest[:12]}, f"plano aprovado por {by} (rev {digest[:12]})")
     write_json(runtime_dir(root) / "plan.lock.json", lock)  # por último: só libera o gate se tudo acima deu certo
-    print(f"approve: plano rev {digest[:12]} aprovado por {by}. Gate G1 liberado para esta revisão.")
+    note = " (o projeto usa fatias: a execução segue a fatia ativa)" if slices_lock(root)["mode"] else ""
+    print(f"approve: plano geral rev {digest[:12]} aprovado por {by}.{note}")
+
+
+def cmd_slice(root: Path, action: str, n: str | None, title: str | None) -> None:
+    lock = slices_lock(root)
+    if action == "list":
+        folder = root / "plan" / "slices"
+        ids = sorted({p.stem.split("slice-", 1)[1] for p in folder.glob("slice-*.md")} | set(lock["approved"]),
+                     key=lambda x: (int(re.match(r"\d+", x).group()), x))
+        print(f"Plano geral: {'aprovado' if master_approved(root) else 'NÃO aprovado'} · modo fatias: "
+              f"{'sim' if lock['mode'] else 'não'} · ativa: {lock['active'] or 'nenhuma'}")
+        for i in ids:
+            mark = "▶" if i == lock["active"] else " "
+            print(f" {mark} fatia {i}: {_slice_state(root, i, lock)}")
+        if not ids:
+            print("  (nenhuma fatia; crie com `slice new N` ou `import-plan <arquivo> --slice N`)")
+        return
+    _expect(n is not None, f"informe o número da fatia para `slice {action}`")
+    n = _check_slice_id(n)
+    if action == "new":
+        path = slice_path(root, n)
+        _expect(not path.exists(), f"{path.relative_to(root)} já existe")
+        tpl = (source_dir(root) / "templates" / "slice.md").read_text(encoding="utf-8")
+        project_id = (load_h2(root).get("project") or {}).get("id", "")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render(tpl, {"slice": n, "title": title or f"Fatia {n}", "project_id": project_id}),
+                        encoding="utf-8")
+        lock["mode"] = True
+        write_slices_lock(root, lock)
+        print(f"slice new: {path.relative_to(root)} criada (rascunho). Preencha e aprove com `approve --slice {n}`.")
+        return
+    if action == "activate":
+        state = _slice_state(root, n, lock)
+        _expect(state != "ausente", f"fatia {n} não existe")
+        lock["mode"] = True
+        lock["active"] = n
+        write_slices_lock(root, lock)
+        _update_state(root, {"slice": n}, f"fatia {n} ativa ({state})")
+        gate = "liberado" if state == "aprovada" else "FECHADO até aprovar (`approve --slice " + n + "`)"
+        print(f"slice activate: fatia {n} ({state}) ativa; gate G1 {gate}.")
+        return
+    if action == "done":
+        _expect(n in lock["approved"], f"fatia {n} não foi aprovada; não pode ser concluída")
+        if n not in lock["done"]:
+            lock["done"].append(n)
+        if lock["active"] == n:
+            lock["active"] = None
+        write_slices_lock(root, lock)
+        _update_state(root, {"slice": ""}, f"fatia {n} concluída")
+        print(f"slice done: fatia {n} concluída. Nenhuma fatia ativa: o gate G1 fica fechado até a próxima "
+              "ser aprovada (planeje-a com omc-plan e `import-plan … --slice N`).")
+        return
+    raise PolicyError(f"ação desconhecida {action!r}")
 
 
 def cmd_task(root: Path, task_id: str | None, hours: float, grants: list[str], clear: bool) -> None:
@@ -945,9 +1089,18 @@ def cmd_checkpoint(root: Path, task: str | None, status: str, next_action: str, 
         "workspace_commit": _workspace_commit(root),
         "plan_revision": str(lock.get("sha256", ""))[:12],
     }
-    log = f"{task or '-'} · {status} · próximo: {next_action}" + (f" · {note}" if note else "")
+    active = slices_lock(root)["active"]
+    if active:
+        fields["slice"] = active
+    log = f"{task or '-'} · {status} · próximo: {next_action}" + (f" · fatia {active}" if active else "") \
+        + (f" · {note}" if note else "")
     _update_state(root, fields, log)
-    print(f"checkpoint: {task or '-'} {status} · commit {fields['workspace_commit'] or '(sem git)'}")
+    print(f"checkpoint: {task or '-'} {status} · commit {fields['workspace_commit'] or '(sem git)'}"
+          + (f" · fatia {active}" if active else ""))
+    policy = read_json(runtime_dir(root) / "policy.json", {}) or {}
+    if any(i.get("id") == "specboard" for i in policy.get("integrations", [])):
+        print("specboard: atualize o painel para refletir este checkpoint — "
+              "`python <specboard.py> validate && python <specboard.py> build` (etapas → executado + evidência).")
 
 
 def cmd_preflight(root: Path) -> int:
@@ -995,6 +1148,14 @@ def cmd_preflight(root: Path) -> int:
     else:
         add("OK", f"plano aprovado rev {lock['sha256'][:12]} por {lock.get('approved_by')} em {lock.get('approved_at')}")
 
+    sl = slices_lock(root)
+    if sl["mode"]:
+        active = sl["active"]
+        if not active:
+            add("WARN", "modo fatias: nenhuma fatia ativa — gate G1 fechado (aprove a próxima com `approve --slice N`)")
+        else:
+            st = _slice_state(root, active, sl)
+            add("OK" if st == "aprovada" else "WARN", f"fatia ativa {active}: {st}")
     state = root / "state" / "current.md"
     if state.is_file():
         try:
@@ -1067,12 +1228,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", nargs="?", default="list", choices=("list", "install", "enable", "disable"))
     p.add_argument("ids", nargs="*")
     sub.add_parser("explain", help="explica as regras efetivas em linguagem simples")
+    p = sub.add_parser("slice", help="fatias de MVP: list | new N | activate N | done N")
+    p.add_argument("action", nargs="?", default="list", choices=("list", "new", "activate", "done"))
+    p.add_argument("n", nargs="?")
+    p.add_argument("--title")
     sub.add_parser("compile", help="resolve H0–H3 e escreve policy.json + settings.json")
     p = sub.add_parser("import-plan", help="importa plano/spec do OMC")
     p.add_argument("source")
+    p.add_argument("--slice", dest="slice_id", help="importa como fatia N (plan/slices/slice-N.md)")
     p = sub.add_parser("approve", help="aprova a revisão atual do plano (decisão humana)")
     p.add_argument("--by")
     p.add_argument("--allow-incomplete", action="store_true")
+    p.add_argument("--slice", dest="slice_id", help="aprova a fatia N em vez do plano geral")
     p = sub.add_parser("task", help="define contexto H3")
     p.add_argument("--id", dest="task_id")
     p.add_argument("--grant", action="append", default=[])
@@ -1103,9 +1270,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "compile":
             cmd_compile(root)
         elif args.cmd == "import-plan":
-            cmd_import_plan(root, Path(args.source))
+            cmd_import_plan(root, Path(args.source), args.slice_id)
         elif args.cmd == "approve":
-            cmd_approve(root, args.by, args.allow_incomplete)
+            cmd_approve(root, args.by, args.allow_incomplete, args.slice_id)
+        elif args.cmd == "slice":
+            cmd_slice(root, args.action, args.n, args.title)
         elif args.cmd == "task":
             cmd_task(root, args.task_id, args.hours, args.grant, args.clear)
         elif args.cmd == "checkpoint":

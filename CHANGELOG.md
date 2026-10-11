@@ -95,6 +95,19 @@
   status is kept out of the policy hash);
 - 39 behavioral tests (9 new for integrations); documented AD-015.
 
+## 0.8.0 — 2026-10-11
+
+- MVP slices for incremental SDD: master plan (`plan/approved.md`) plus `plan/slices/slice-N.md`, each approved
+  separately (`approve --slice N`, requires an approved master plan, human confirmation);
+- once a project uses slices, the guard only allows material actions with an active, approved, unchanged slice;
+  `slice done N` closes the gate until the next slice is approved;
+- new `slice [list|new|activate|done]` command, `import-plan --slice N`, SDD slice template (REQ/AC, out of scope,
+  tests, abandonment criterion, suggested executor agent);
+- checkpoint records the active slice and reminds to rebuild the specboard; SessionStart, preflight and explain show
+  slice status;
+- SKILL.md documents the omc-plan → import-plan → specboard → approve → execute → slice done loop with a prompt
+  template; 46 behavioral tests.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

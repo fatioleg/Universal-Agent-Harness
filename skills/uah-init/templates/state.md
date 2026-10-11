@@ -2,6 +2,7 @@
 project_id: {{project_id_q}}
 plan_revision: ""
 task_id: ""
+slice: ""
 status: "planning"
 operator: ""
 workspace_commit: ""

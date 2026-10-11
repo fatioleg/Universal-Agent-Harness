@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-GUARD_VERSION = "0.7.0"
+GUARD_VERSION = "0.8.0"
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MUTATING_ALL_ARGS = {"rm", "rmdir", "unlink", "shred", "truncate", "chmod", "chown", "touch", "tee", "mv"}
@@ -114,9 +114,25 @@ def plan_status(root: Path) -> tuple[str, str]:
     except (OSError, ValueError):
         return "pending", ""
     current = plan_body_sha(plan)
-    if current and lock.get("sha256") == current:
+    if not (current and lock.get("sha256") == current):
+        return "modified", str(lock.get("sha256", ""))[:12]
+    # Fatias: depois da primeira, a execução exige fatia ativa, aprovada e inalterada.
+    try:
+        slices = json.loads((root / ".uah" / "slices.lock.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return "approved", current[:12]
-    return "modified", str(lock.get("sha256", ""))[:12]
+    if not isinstance(slices, dict) or not slices.get("mode"):
+        return "approved", current[:12]
+    active = slices.get("active")
+    if not active:
+        return "no-slice", current[:12]
+    entry = (slices.get("approved") or {}).get(str(active))
+    slice_sha = plan_body_sha(root / "plan" / "slices" / f"slice-{active}.md")
+    if not entry:
+        return "slice-pending", str(active)
+    if entry.get("sha256") != slice_sha:
+        return "slice-modified", str(active)
+    return "approved", f"{current[:12]} · fatia {active}"
 
 
 def glob_to_regex(glob: str) -> re.Pattern:
@@ -361,6 +377,16 @@ def is_readonly(command: str, policy: dict, root: Path) -> bool:
     return True
 
 
+GATE_MESSAGES = {
+    "missing": "não há plan/approved.md",
+    "pending": "o plano ainda não foi aprovado",
+    "modified": "o plano mudou depois da aprovação",
+    "no-slice": "o projeto usa fatias e nenhuma está ativa (aprove a próxima: `uah.py approve --slice N`)",
+    "slice-pending": "a fatia ativa ainda não foi aprovada",
+    "slice-modified": "a fatia ativa mudou depois da aprovação",
+}
+
+
 # --------------------------------------------------------------- decisions
 
 def regex_hit(rules: list[dict], command: str) -> dict | None:
@@ -444,11 +470,7 @@ def pre_tool_use(payload: dict) -> None:
     protected = policy.get("protected_paths", [])
     gate_on = bool(policy.get("plan_gate"))
     plan_state = plan_status(root)[0] if gate_on else "approved"
-    gate_msg = {
-        "missing": "não há plan/approved.md",
-        "pending": "o plano ainda não foi aprovado",
-        "modified": "o plano mudou depois da aprovação",
-    }.get(plan_state, "")
+    gate_msg = GATE_MESSAGES.get(plan_state, "")
 
     if tool == "Bash":
         hit = regex_hit(policy.get("bash_deny", []), command)
@@ -508,13 +530,18 @@ def session_start(_payload: dict) -> None:
     state, rev = plan_status(root)
     label = {"approved": f"APROVADO (rev {rev})", "pending": "PENDENTE de aprovação",
              "modified": f"MODIFICADO após a aprovação (aprovado: {rev}) — reaprovar",
-             "missing": "inexistente"}[state]
+             "missing": "inexistente",
+             "no-slice": f"geral aprovado (rev {rev}); NENHUMA fatia ativa",
+             "slice-pending": f"geral aprovado; fatia {rev} PENDENTE de aprovação",
+             "slice-modified": f"geral aprovado; fatia {rev} MODIFICADA após a aprovação — reaprovar"}[state]
     gate = " · gate G1 ativo" if policy.get("plan_gate") and state != "approved" else ""
     lines.append(f"Plano: {label}{gate}")
     try:
         fm, _ = split_frontmatter((root / "state" / "current.md").read_text(encoding="utf-8"))
         st = parse_flat_yaml(fm)
-        lines.append(f"Estado: tarefa {st.get('task_id') or '-'} · {st.get('status') or '-'} · "
+        lines.append(f"Estado: tarefa {st.get('task_id') or '-'}"
+                     + (f" · fatia {st.get('slice')}" if st.get("slice") else "")
+                     + f" · {st.get('status') or '-'} · "
                      f"próximo: {st.get('next_action') or '-'} · bloqueios: {st.get('blockers') or 'nenhum'} · "
                      f"atualizado {st.get('updated_at') or '-'}")
     except (OSError, ValueError):

@@ -127,6 +127,8 @@ REQUIRED_FILES = [
     "skills/uah-init/integrations/workflow-digestion.json",
     "skills/uah-init/integrations/specboard.json",
     "skills/uah-init/integrations/calcboard.json",
+    # v0.8.0 additions (MVP slices)
+    "skills/uah-init/templates/slice.md",
 ]
 
 

@@ -461,6 +461,104 @@ class ReviewRegressionTests(_Base):
         self.assertEqual(sum(".uah/hooks/uah_guard.py" in c for c in cmds), 1)
 
 
+class SliceTests(_Base):
+    """Fatias de MVP (v0.8.0): plano geral + plan/slices/slice-N.md aprovadas uma a uma."""
+
+    def master(self, risk="medium") -> Project:
+        p = self.make(risk=risk)
+        p.write_plan()
+        self.assertEqual(p.uah("approve").returncode, 0)
+        return p
+
+    def write_slice(self, p: Project, n: str, extra: str = "") -> Path:
+        src = p.root / ".omc/plans" / f"slice-{n}.md"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_text(f"# Slice {n}\n\n## Scope\n- tela de login\n\n## Requirements\n- REQ-{n}.1\n\n"
+                       f"## Acceptance Criteria\n- AC-{n}.1 login funciona\n{extra}")
+        out = p.uah("import-plan", str(src), "--slice", n)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return p.root / "plan/slices" / f"slice-{n}.md"
+
+    def test_projects_without_slices_keep_master_gate(self):
+        p = self.master()
+        self.assertIsNone(p.write("src/app.py"))
+        self.assertIn("modo fatias: não", p.uah("slice").stdout)
+
+    def test_slice_must_be_approved_before_execution(self):
+        p = self.master()
+        self.write_slice(p, "1")
+        self.assertEqual(p.write("src/app.py"), "deny")  # importou fatia: modo fatias, nenhuma ativa
+        self.assertIn("nenhuma está ativa", p.hook("pre-tool-use", {"tool_name": "Write", "tool_input": {
+            "file_path": str(p.root / "src/app.py")}, "cwd": str(p.root)}).stdout)
+        self.assertEqual(p.bash("python3 .uah/uah.py approve --slice 1"), "ask")  # decisão humana
+        out = p.uah("approve", "--slice", "1")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("ATIVA", out.stdout)
+        self.assertIsNone(p.write("src/app.py"))
+        self.assertIn("fatia 1", p.hook("session-start", {}).stdout)
+
+    def test_slice_change_after_approval_reopens_gate(self):
+        p = self.master()
+        path = self.write_slice(p, "2")
+        p.uah("approve", "--slice", "2")
+        path.write_text(path.read_text() + "\n- REQ-2.9 — escopo novo\n")
+        self.assertEqual(p.write("src/app.py"), "deny")
+        self.assertIn("modificada", p.uah("slice").stdout)
+
+    def test_slice_requires_master_and_completeness(self):
+        p = self.make(risk="medium")
+        p.write_plan()
+        self.write_slice(p, "1")
+        out = p.uah("approve", "--slice", "1")
+        self.assertEqual(out.returncode, 3)
+        self.assertIn("plano geral", out.stderr)
+        p.uah("approve")
+        (p.root / "plan/slices/slice-3.md").write_text("---\nstatus: draft\n---\nsó texto solto sem nada verificável aqui.\n")
+        out = p.uah("approve", "--slice", "3")
+        self.assertEqual(out.returncode, 3)
+        self.assertIn("incompleto", out.stderr)
+
+    def test_done_closes_gate_until_next_slice(self):
+        p = self.master()
+        self.write_slice(p, "1")
+        p.uah("approve", "--slice", "1")
+        out = p.uah("slice", "done", "1")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(p.write("src/app.py"), "deny")
+        listing = p.uah("slice").stdout
+        self.assertIn("fatia 1: concluída", listing)
+        self.assertIn("ativa: nenhuma", listing)
+        self.write_slice(p, "2")
+        p.uah("approve", "--slice", "2")
+        self.assertIsNone(p.write("src/app.py"))
+
+    def test_slice_new_template_and_activate(self):
+        p = self.master()
+        out = p.uah("slice", "new", "4", "--title", 'Painel "admin"')
+        self.assertEqual(out.returncode, 0, out.stderr)
+        text = (p.root / "plan/slices/slice-4.md").read_text()
+        for section in ("Requisitos", "Critérios de aceite", "Critério de abandono", "Agente executor sugerido"):
+            self.assertIn(section, text)
+        meta = yaml.safe_load(text.split("---")[1])
+        self.assertEqual(meta["slice"], "4")
+        out = p.uah("slice", "activate", "4")
+        self.assertIn("FECHADO", out.stdout)
+        self.assertEqual(p.uah("slice", "activate", "9").returncode, 3)
+        self.assertEqual(p.uah("slice", "new", "x/../y").returncode, 3)
+
+    def test_checkpoint_records_slice_and_reminds_specboard(self):
+        p = self.master()
+        p.uah("integrations", "enable", "specboard")
+        self.write_slice(p, "1")
+        p.uah("approve", "--slice", "1")
+        out = p.uah("checkpoint", "--task", "T-1.1", "--status", "active", "--next", "implementar AC-1.1")
+        self.assertIn("fatia 1", out.stdout)
+        self.assertIn("specboard: atualize o painel", out.stdout)
+        state = yaml.safe_load((p.root / "state/current.md").read_text().split("---")[1])
+        self.assertEqual(state["slice"], "1")
+        self.assertIn("Modo fatias", p.uah("explain").stdout)
+
+
 class IntegrationTests(_Base):
     """Integrações do catálogo: workflow-digestion, specboard, calcboard (v0.7.0)."""
 

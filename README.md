@@ -23,7 +23,7 @@ autoridade** (sources imutáveis, representações derivadas).
 
 **Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
 rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
-[UAH-lite](#uah-lite-v070--harness-executável-por-projeto) abaixo.
+[UAH-lite](#uah-lite-v080--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -43,7 +43,7 @@ Caminhos declarativos anteriores (continuam válidos):
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
 
-## UAH-lite (v0.7.0) — harness executável por projeto
+## UAH-lite (v0.8.0) — harness executável por projeto
 
 O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
 planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
@@ -110,6 +110,8 @@ Plano
 G1 · Aprovação humana
    │   uah.py approve → o guarda pede confirmação → grava o sha256 do plano
    │   editar o corpo do plano depois reabre o gate
+   │   projeto incremental? cada fatia: omc-plan → import-plan --slice N
+   │                                   → approve --slice N (só a fatia ativa libera execução)
    ▼
 Execução (Claude Code / OMC, normalmente)
    │   a cada ação o hook-guarda decide: bloquear / pedir confirmação / liberar
@@ -144,6 +146,8 @@ conduz tudo isso por você.
 | `integrations [list]` | lista o catálogo, mostrando o que está ativo e instalado e o que é recomendado para o projeto |
 | `integrations install <id>` | clona o repositório em `~/.claude/tools/` e liga a skill em `~/.claude/skills/` |
 | `integrations enable\|disable <id>` | ativa/desativa no `project.yaml` (preserva comentários) e recompila |
+| `import-plan <arquivo> --slice N` / `approve --slice N` | traz e aprova uma fatia de MVP (a aprovada fica ativa) |
+| `slice [list\|new N\|activate N\|done N]` | gerencia as fatias; `done` fecha o gate até a próxima |
 
 ### Arquivos em cada projeto
 
@@ -178,6 +182,25 @@ python3 .uah/uah.py integrations enable calcboard    # ativa no projeto (pede co
 
 As recomendações vêm de `project.domains` (ex.: `literatura`, `edital`, `quimica-computacional`,
 `software`) e do risco. Para adicionar outra ferramenta, basta escrever um JSON novo no catálogo.
+
+### Fatias de MVP: desenvolvimento incremental com SDD
+
+Para projetos que avançam por incrementos: o **plano geral** (`plan/approved.md`) é aprovado uma vez e cada
+**fatia** (`plan/slices/slice-N.md`) é planejada, aprovada e executada separadamente. Depois da primeira fatia,
+nada material é feito sem uma fatia ativa e aprovada.
+
+```text
+/oh-my-claudecode:omc-plan --consensus "Crie .omc/plans/slice-N.md … (formato SDD: REQ, AC, fora do escopo,
+                                          testes, critério de abandono, agente executor)"
+python3 .uah/uah.py import-plan .omc/plans/slice-N.md --slice N
+/specboard                                   # painel: a fatia vira módulo(s), contratos e etapas
+python3 .uah/uah.py approve --slice N        # você aprova; a fatia fica ativa
+… designer (UI) ou executor implementa · checkpoint · specboard build · você faz review/verify …
+python3 .uah/uah.py slice done N             # fecha a fatia; o gate espera a próxima
+```
+
+O modelo completo do prompt do `omc-plan` está na `SKILL.md`. O `omc-plan` só planeja: painel e orquestração
+ficam com o specboard e o UAH, e o `CLAUDE.md` continua curto.
 
 ### O `project.yaml`
 
@@ -639,7 +662,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.7.0 (única versão do produto)
+├── VERSION                   # 0.8.0 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -667,7 +690,7 @@ Universal-Agent-Harness/
 │                             # profiles/ (H0 + risco H1), templates/,
 │                             # integrations/ (catálogo de ferramentas)
 │
-├── tests/test_uah_lite.py    # 39 testes comportamentais (AT-01/02/03/05/07/09/14 + integrações)
+├── tests/test_uah_lite.py    # 46 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
@@ -695,15 +718,15 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # 39 testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 46 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
-validador em v0.7.0:
+validador em v0.8.0:
 
 ```text
-PASS: Universal Agent Harness 0.7.0
-PASS: 105 required files
+PASS: Universal Agent Harness 0.8.0
+PASS: 106 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
 PASS: 11 extension schemas
@@ -713,8 +736,8 @@ PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 
 ## Status
 
-Versão **0.7.0**. Inclui o UAH-lite com catálogo de integrações
-(Workflow_Digestion, specboard, CalcBoard) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
+Versão **0.8.0**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
+catálogo de integrações (Workflow_Digestion, specboard, CalcBoard) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
 parte executável: resolvedor H0–H3 determinístico compilado para o
 Claude Code, gate de plano aprovado e checkpoint de retomada, com
 testes comportamentais. Também inclui: núcleo multiplataforma, 11 arquétipos de
