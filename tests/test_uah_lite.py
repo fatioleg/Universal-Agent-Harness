@@ -743,6 +743,84 @@ class IntegrationTests(_Base):
         self.assertEqual(bad.returncode, 3)
 
 
+class AttemptsAndCostTests(_Base):
+    """Restrições do UAH sobre a execução do OMC: parada por tentativas e custo por tarefa validada."""
+
+    def approved(self, risk="medium") -> Project:
+        p = self.make(risk=risk)
+        p.write_plan()
+        self.assertEqual(p.uah("approve").returncode, 0)
+        return p
+
+    def fail(self, p: Project, n: int) -> subprocess.CompletedProcess:
+        return p.uah("checkpoint", "--task", "T-1", "--status", "active", "--next", "tentar de novo",
+                     "--failed", f"teste {n} reprovou", "--level", "padrão")
+
+    def test_attempt_limit_blocks_material_actions_until_human_reset(self):
+        p = self.approved("medium")  # limite 3
+        self.assertIn("parada após 3 tentativa", p.uah("explain").stdout)
+        self.fail(p, 1)
+        self.fail(p, 2)
+        self.assertIsNone(p.write("src/x.py"))
+        out = self.fail(p, 3)
+        self.assertIn("PARE", out.stdout)
+        state = yaml.safe_load((p.root / "state/current.md").read_text().split("---")[1])
+        self.assertEqual(state["status"], "blocked")
+        self.assertTrue(state["blocked_by_attempts"])
+        self.assertEqual(p.write("src/x.py"), "deny")
+        self.assertEqual(p.bash("python3 run.py"), "deny")
+        self.assertIsNone(p.write("plan/approved.md"))          # pode replanejar
+        self.assertIn("PARE", p.hook("session-start", {}).stdout)
+        self.assertEqual(p.uah("preflight").returncode, 1)
+        again = p.uah("checkpoint", "--task", "T-1", "--status", "active", "--next", "x")
+        self.assertEqual(again.returncode, 3)                    # agente não desbloqueia sozinho
+        self.assertEqual(p.bash("python3 .uah/uah.py checkpoint --task T-1 --status active --next x --reset-attempts"),
+                         "ask")                                  # desbloqueio pede confirmação humana
+        self.assertEqual(p.uah("checkpoint", "--task", "T-1", "--status", "active", "--next", "nível crítico",
+                               "--reset-attempts").returncode, 0)
+        self.assertIsNone(p.write("src/x.py"))
+
+    def test_limits_by_risk_and_h2_can_only_reduce(self):
+        self.assertIn("parada após 2", self.make(risk="high").uah("explain").stdout)
+        self.assertIn("parada após 5", self.make(risk="low").uah("explain").stdout)
+        p = self.make(risk="medium")
+        p.edit_yaml(lambda d: d["policy"].update(max_attempts=10))
+        self.assertEqual(p.uah("compile").returncode, 3)
+        p.edit_yaml(lambda d: d["policy"].update(max_attempts=1))
+        self.assertEqual(p.uah("compile").returncode, 0)
+        self.assertIn("parada após 1", p.uah("explain").stdout)
+
+    def test_new_task_resets_counter(self):
+        p = self.approved("medium")
+        self.fail(p, 1)
+        self.fail(p, 2)
+        p.uah("checkpoint", "--task", "T-2", "--status", "active", "--next", "outra tarefa")
+        state = yaml.safe_load((p.root / "state/current.md").read_text().split("---")[1])
+        self.assertEqual(state["failed_attempts"], 0)
+
+    def test_cost_per_validated_task_in_preflight(self):
+        p = self.approved("low")
+        self.fail(p, 1)
+        p.uah("checkpoint", "--task", "T-1", "--status", "done", "--next", "T-2", "--level", "padrão",
+              "--cost", "0.40", "--tokens", "120000")
+        p.uah("checkpoint", "--task", "T-2", "--status", "done", "--next", "fim", "--level", "leve", "--cost", "0.10")
+        ledger = [json.loads(l) for l in (p.root / "state/tarefas.jsonl").read_text().splitlines()]
+        self.assertEqual([r["event"] for r in ledger], ["failed", "done", "done"])
+        self.assertEqual(ledger[1]["attempts"], 2)
+        pre = p.uah("preflight").stdout
+        self.assertIn("tarefas validadas: 2", pre)
+        self.assertIn("custo por tarefa validada 0.25", pre)
+        self.assertIn("tentativas médias 1.5", pre)
+
+    def test_templates_carry_reasoning_level(self):
+        p = self.make(risk="medium")
+        self.assertIn("nível: padrão", (p.root / "plan/approved.md").read_text())
+        p.write_plan()
+        p.uah("approve")
+        p.uah("slice", "new", "1")
+        self.assertIn("nível: padrão", (p.root / "plan/slices/slice-1.md").read_text())
+
+
 class SetupEnvTests(_Base):
     """setup-env: relatório, instalação sem sudo com checksum conferido (espelho local, sem rede)."""
 

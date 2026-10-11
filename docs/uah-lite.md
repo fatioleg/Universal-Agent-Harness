@@ -1,4 +1,4 @@
-# UAH-lite (v0.8.4)
+# UAH-lite (v0.9.0)
 
 Implementação mínima e executável da recomendação da auditoria de 11/10/2026: o UAH deixa de ser só
 documentação e passa a **compilar** as regras H0–H3 para o ponto onde elas podem ser aplicadas de fato, ou seja,
@@ -96,7 +96,7 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: 62 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 11 de integrações; 7 de fatias; 10 da auditoria do Codex; 4 do setup-env) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 67 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 11 de integrações; 7 de fatias; 10 da auditoria do Codex; 4 do setup-env; 5 de tentativas/custo) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
 
 ## Integrações fixadas por commit (v0.8.3)

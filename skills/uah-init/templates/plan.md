@@ -19,7 +19,7 @@ project_id: {{project_id_q}}
 - D-001 — descrição · **aceite:** evidência observável
 
 ## Tarefas
-- T-001 — objetivo · depende de: — · paralelizável: não · **pronto quando:** critério verificável
+- T-001 — objetivo · depende de: — · paralelizável: não · nível: padrão · **pronto quando:** critério verificável
 
 ## Critérios de aceite
 

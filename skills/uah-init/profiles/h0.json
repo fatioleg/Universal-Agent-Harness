@@ -40,8 +40,8 @@
   "bash_ask": [
     {
       "id": "H0-approve",
-      "pattern": "\\buah\\.py\\s+(--root\\s+\\S+\\s+)?(approve\\b|task\\b.*\\s--grant\\b|integrations\\s+(enable|install)\\b|setup-env\\b.*--install\\b)",
-      "reason": "aprovar o plano, conceder permissão temporária, ativar/instalar integração ou instalar ferramentas é decisão humana",
+      "pattern": "\\buah\\.py\\s+(--root\\s+\\S+\\s+)?(approve\\b|task\\b.*\\s--grant\\b|integrations\\s+(enable|install)\\b|setup-env\\b.*--install\\b|checkpoint\\b.*--reset-attempts\\b)",
+      "reason": "aprovar o plano, conceder permissão, ativar/instalar integração ou ferramentas, ou desbloquear tarefa após o limite de tentativas é decisão humana",
       "locked": true
     },
     {

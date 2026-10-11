@@ -48,7 +48,7 @@ except ImportError:  # pragma: no cover - mensagem para o operador
     print("UAH-lite precisa de PyYAML: python3 -m pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-UAH_LITE_VERSION = "0.8.4"
+UAH_LITE_VERSION = "0.9.0"
 HERE = Path(__file__).resolve().parent
 RISKS = ("low", "medium", "high")
 G4_ORDER = {"off": 0, "block": 1}
@@ -62,7 +62,9 @@ PROJECT_KEYS = {"id", "title", "domains"}
 RUNTIME_KEYS = {"python"}
 INTEGRATION_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask", "plan_gate_paths", "gate_cli"}
 H2_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask", "settings_allow",
-                  "settings_ask", "settings_deny", "grantable", "plan_gate", "g4_checkpoint"}
+                  "settings_ask", "settings_deny", "grantable", "plan_gate", "g4_checkpoint", "max_attempts"}
+LEVELS = ("leve", "padrão", "crítico")
+LEDGER_REL = "state/tarefas.jsonl"
 H3_KEYS = {"task_id", "expires_at", "grants", "policy", "note"}
 H3_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask"}
 # Comandos de risco usados para checar se um prefixo de `settings_allow` cobriria regra deny/ask superior.
@@ -390,6 +392,7 @@ def resolve(root: Path) -> dict:
         "readonly_bash": _str_list(h0.get("readonly_bash", []), "H0.readonly_bash"),
         "readonly_bash_subcommands": h0.get("readonly_bash_subcommands", {}),
         "g4_checkpoint": "off",
+        "max_attempts": 5,
         "gate_cli": [],
         "integrations": [],
         "temporary_grants": [],
@@ -417,6 +420,9 @@ def resolve(root: Path) -> dict:
         _expect(g4 in G4_ORDER, f"{layer}.g4_checkpoint inválido")
         if G4_ORDER[g4] > G4_ORDER[resolved["g4_checkpoint"]]:
             resolved["g4_checkpoint"] = g4
+        if "max_attempts" in data:
+            _expect(isinstance(data["max_attempts"], int) and data["max_attempts"] >= 1, f"{layer}.max_attempts inválido")
+            resolved["max_attempts"] = min(resolved["max_attempts"], data["max_attempts"])
 
     # Integrações ativas (catálogo confiável, nível H1): só acrescentam restrições,
     # caminhos de planejamento e CLIs de planejamento/leitura liberados antes da aprovação.
@@ -477,6 +483,12 @@ def resolve(root: Path) -> dict:
         _expect(G4_ORDER[g4] >= G4_ORDER[resolved["g4_checkpoint"]],
                 f"H2.g4_checkpoint={g4} afrouxa o exigido pelo risco {risk}")
         resolved["g4_checkpoint"] = g4
+    if "max_attempts" in p2:
+        ma = p2["max_attempts"]
+        _expect(isinstance(ma, int) and ma >= 1, "H2.max_attempts deve ser inteiro ≥ 1")
+        _expect(ma <= resolved["max_attempts"], f"H2.max_attempts={ma} afrouxa o limite do risco {risk} "
+                                                f"({resolved['max_attempts']}); só pode reduzir")
+        resolved["max_attempts"] = ma
     grantable = _rules(p2.get("grantable", []), "H2.grantable", "H2")
     ids = [g["id"] for g in grantable]
     _expect(len(ids) == len(set(ids)), "H2.grantable: ids duplicados")
@@ -845,7 +857,7 @@ def cmd_explain(root: Path) -> None:
     yes = lambda b: "sim" if b else "não"  # noqa: E731
     print(f"Projeto `{pol['project']['id']}` — {pol['project'].get('title') or ''}".rstrip(" —"))
     print(f"Risco: {pol['risk']} · gate de plano (G1): {yes(pol['plan_gate'])} · checkpoint obrigatório (G4): "
-          f"{yes(pol['g4_checkpoint'] == 'block')}")
+          f"{yes(pol['g4_checkpoint'] == 'block')} · parada após {pol['max_attempts']} tentativa(s) falha(s)")
     state = "aprovado" if master_approved(root) else "não aprovado"
     sl = slices_lock(root)
     if pol["plan_gate"]:
@@ -1119,27 +1131,106 @@ def _update_state(root: Path, fields: dict, log: str) -> None:
     path.write_text(join_frontmatter(meta, body), encoding="utf-8")
 
 
-def cmd_checkpoint(root: Path, task: str | None, status: str, next_action: str, blockers: list[str], note: str | None) -> None:
+def _state_meta(root: Path) -> dict:
+    path = root / "state" / "current.md"
+    if not path.is_file():
+        return {}
+    try:
+        meta = yaml.safe_load(split_frontmatter(path.read_text(encoding="utf-8"))[0]) or {}
+    except yaml.YAMLError:
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _ledger_append(root: Path, record: dict) -> None:
+    path = root / LEDGER_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"at": now_iso(), **record}, ensure_ascii=False) + "\n")
+
+
+def ledger_summary(root: Path) -> dict | None:
+    """Custo por tarefa CONCLUÍDA E VALIDADA (status done), não tokens brutos."""
+    path = root / LEDGER_REL
+    if not path.is_file():
+        return None
+    done, failed = [], 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if rec.get("event") == "done":
+            done.append(rec)
+        elif rec.get("event") == "failed":
+            failed += 1
+    costs = [r["cost"] for r in done if isinstance(r.get("cost"), (int, float))]
+    tokens = [r["tokens"] for r in done if isinstance(r.get("tokens"), int)]
+    attempts = [r.get("attempts", 1) for r in done]
+    by_level: dict[str, list[float]] = {}
+    for r in done:
+        if isinstance(r.get("cost"), (int, float)):
+            by_level.setdefault(r.get("level") or "?", []).append(r["cost"])
+    return {"done": len(done), "failed_attempts": failed,
+            "cost_total": round(sum(costs), 4) if costs else None,
+            "cost_per_validated": round(sum(costs) / len(costs), 4) if costs else None,
+            "tokens_per_validated": int(sum(tokens) / len(tokens)) if tokens else None,
+            "attempts_mean": round(sum(attempts) / len(attempts), 2) if attempts else None,
+            "cost_by_level": {k: round(sum(v) / len(v), 4) for k, v in by_level.items()}}
+
+
+def cmd_checkpoint(root: Path, task: str | None, status: str, next_action: str, blockers: list[str], note: str | None,
+                   failed: str | None = None, reset_attempts: bool = False, cost: float | None = None,
+                   tokens: int | None = None, level: str | None = None) -> None:
+    _expect(level is None or level in LEVELS, f"--level deve ser {', '.join(LEVELS)}")
     lock = read_json(runtime_dir(root) / "plan.lock.json", {}) or {}
-    operator = run(["git", "config", "user.name"], cwd=root) or os.environ.get("USER", "")
+    policy = read_json(runtime_dir(root) / "policy.json", {}) or {}
+    max_attempts = int(policy.get("max_attempts", 5))
+    prev = _state_meta(root)
+    same_task = bool(task) and str(prev.get("task_id") or "") == str(task)
+    attempts = int(prev.get("failed_attempts") or 0) if same_task else 0
+    locked = bool(prev.get("blocked_by_attempts")) and same_task
+    if locked and not reset_attempts:
+        raise PolicyError(f"tarefa {task} BLOQUEADA após {attempts} tentativa(s) falha(s) (limite {max_attempts}). "
+                          "Um humano precisa decidir e rodar `checkpoint --task … --reset-attempts` "
+                          "(replanejar, mudar o nível ou aceitar o bloqueio).")
+    if reset_attempts:
+        attempts, locked = 0, False
+    if failed:
+        attempts += 1
+        _ledger_append(root, {"event": "failed", "task": task, "attempt": attempts, "reason": failed, "level": level})
+        if attempts >= max_attempts:
+            locked = True
+            status = "blocked"
+            blockers = [*blockers, f"{attempts} tentativas falharam (limite {max_attempts}): {failed}"]
+            next_action = "PARAR: humano decide (replanejar, subir o nível de raciocínio ou abandonar a tarefa)"
+    if status == "done" and task:
+        _ledger_append(root, {"event": "done", "task": task, "attempts": attempts + 1, "level": level,
+                              "cost": cost, "tokens": tokens})
+        attempts = 0
     fields = {
         "task_id": task,
         "status": status,
         "next_action": next_action,
         "blockers": "; ".join(blockers),
-        "operator": operator,
+        "operator": run(["git", "config", "user.name"], cwd=root) or os.environ.get("USER", ""),
         "workspace_commit": _workspace_commit(root),
         "plan_revision": str(lock.get("sha256", ""))[:12],
+        "failed_attempts": attempts,
+        "blocked_by_attempts": locked,
     }
     active = slices_lock(root)["active"]
     if active:
         fields["slice"] = active
     log = f"{task or '-'} · {status} · próximo: {next_action}" + (f" · fatia {active}" if active else "") \
-        + (f" · {note}" if note else "")
+        + (f" · falha {attempts}/{max_attempts}: {failed}" if failed else "") + (f" · {note}" if note else "")
     _update_state(root, fields, log)
     print(f"checkpoint: {task or '-'} {status} · commit {fields['workspace_commit'] or '(sem git)'}"
-          + (f" · fatia {active}" if active else ""))
-    policy = read_json(runtime_dir(root) / "policy.json", {}) or {}
+          + (f" · fatia {active}" if active else "")
+          + (f" · tentativas falhas {attempts}/{max_attempts}" if attempts else ""))
+    if locked:
+        print(f"PARE: {attempts} tentativas falharam. Alterações materiais ficam bloqueadas até um humano rodar "
+              f"`python3 .uah/uah.py checkpoint --task {task} --status active --next \"…\" --reset-attempts`.")
     if any(i.get("id") == "specboard" for i in policy.get("integrations", [])):
         print("specboard: atualize o painel para refletir este checkpoint — "
               "`python <specboard.py> validate && python <specboard.py> build` (etapas → executado + evidência).")
@@ -1381,6 +1472,16 @@ def cmd_preflight(root: Path) -> int:
         else:
             st = _slice_state(root, active, sl)
             add("OK" if st == "aprovada" else "WARN", f"fatia ativa {active}: {st}")
+    meta_now = _state_meta(root)
+    if meta_now.get("blocked_by_attempts"):
+        add("FAIL", f"tarefa {meta_now.get('task_id')} bloqueada após {meta_now.get('failed_attempts')} tentativa(s) "
+                    "falha(s): humano decide e roda `checkpoint --reset-attempts`")
+    summary = ledger_summary(root)
+    if summary and summary["done"]:
+        cost = (f" · custo por tarefa validada {summary['cost_per_validated']}" if summary["cost_per_validated"] is not None
+                else " · custo não registrado (use --cost ao concluir)")
+        add("OK", f"tarefas validadas: {summary['done']} · tentativas médias {summary['attempts_mean']}"
+                  f" · falhas registradas {summary['failed_attempts']}{cost}")
     state = root / "state" / "current.md"
     if state.is_file():
         try:
@@ -1479,6 +1580,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--next", dest="next_action", required=True)
     p.add_argument("--blocker", action="append", default=[])
     p.add_argument("--note")
+    p.add_argument("--failed", metavar="MOTIVO", help="registra uma tentativa falha (verify/teste reprovou)")
+    p.add_argument("--reset-attempts", action="store_true", help="desbloqueia após o limite de tentativas (humano)")
+    p.add_argument("--level", choices=LEVELS, help="nível de raciocínio da tarefa (leve|padrão|crítico)")
+    p.add_argument("--cost", type=float, help="custo da tarefa (ex.: USD do /cost do Claude Code) ao concluir")
+    p.add_argument("--tokens", type=int, help="tokens da tarefa ao concluir")
     sub.add_parser("preflight", help="verificações antes de retomar")
     sub.add_parser("status", help="alias de preflight")
     return parser
@@ -1509,7 +1615,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "task":
             cmd_task(root, args.task_id, args.hours, args.grant, args.clear)
         elif args.cmd == "checkpoint":
-            cmd_checkpoint(root, args.task, args.status, args.next_action, args.blocker, args.note)
+            cmd_checkpoint(root, args.task, args.status, args.next_action, args.blocker, args.note,
+                           args.failed, args.reset_attempts, args.cost, args.tokens, args.level)
         elif args.cmd in ("preflight", "status"):
             return cmd_preflight(root)
     except PolicyError as exc:

@@ -32,7 +32,9 @@ project_id: {{project_id_q}}
 - parar e replanejar se:
 
 ## Agente executor sugerido
-- `designer` (interface/UI) · `executor` (código, dados, cálculo) · `writer` (texto)
+- nível por tarefa: `leve` (ferramenta determinística; se preciso, `explore`/`writer` — Haiku) ·
+  `padrão` (`executor`, `scientist`, `designer` p/ UI — Sonnet; valida com `verifier`) ·
+  `crítico` (`analyst`/`architect`/`critic` — Opus, + revisão independente)
 
 ## Tarefas
-- T-{{slice}}.1 — objetivo · **pronto quando:** critério verificável
+- T-{{slice}}.1 — objetivo · nível: padrão · **pronto quando:** critério verificável

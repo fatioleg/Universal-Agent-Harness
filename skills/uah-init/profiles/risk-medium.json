@@ -22,5 +22,6 @@
     "deny": []
   },
   "plan_gate": true,
-  "g4_checkpoint": "off"
+  "g4_checkpoint": "off",
+  "max_attempts": 3
 }

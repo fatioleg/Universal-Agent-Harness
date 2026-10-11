@@ -82,6 +82,30 @@ Para ver o estado das fatias: `python3 .uah/uah.py slice`. A fatia ativa e o est
 
 **O CLAUDE.md não vira orquestrador:** memória, contexto, estado, regras, skills e integrações já chegam pelo bloco UAH, pelo `state/current.md` e pelo resumo da sessão. Mantenha o `CLAUDE.md` curto. Se o usuário quiser um mapa de agentes/skills do projeto, crie `docs/agentes.md` e aponte para ele em uma linha.
 
+## Nível de raciocínio, tentativas e custo (sem orquestrador extra)
+
+O OMC executa e escolhe agentes; o UAH só impõe **restrições**. Cada tarefa do plano ou da fatia tem
+`nível: leve | padrão | crítico`. Delegue conforme o nível, usando os agentes do OMC, que já têm modelo fixo:
+
+| Nível | Quando | Como executar |
+|---|---|---|
+| `leve` | busca, extração, conversão, formatação, contagem | **ferramenta determinística primeiro** (script, RDKit, grep, pubdoc, figs). Se precisar de modelo: `explore` ou `writer` (Haiku) |
+| `padrão` | código, análise, síntese, figuras, textos técnicos | `executor`, `scientist`, `debugger`, `test-engineer`, `designer` (só UI) ou `document-specialist` (Sonnet); valide com `verifier` |
+| `crítico` | decisão científica, fundamentação teórica, arquitetura, resultado publicável | `analyst`, `architect` ou `critic` (Opus) **+ revisão independente** (`code-reviewer` ou `kd-peer-review`) |
+
+O nível pode subir se a tarefa se mostrar mais difícil. Uma tarefa "simples" que decide um resultado científico é `crítico`.
+
+**Tentativas.** Quando o verify ou os testes de uma tarefa reprovarem, registre:
+`python3 .uah/uah.py checkpoint --task T-x --status active --next "…" --failed "motivo" --level <nível>`.
+Ao atingir o limite do risco (low 5, medium 3, high 2; o `project.yaml` pode reduzir com `policy.max_attempts`), a
+tarefa fica **bloqueada**: o guard nega alterações materiais. **Pare** e leve ao usuário as opções: replanejar,
+subir o nível ou abandonar. O desbloqueio (`--reset-attempts`) é decisão humana e pede confirmação.
+
+**Custo por tarefa validada.** Ao concluir uma tarefa que passou na verificação, registre:
+`checkpoint --task T-x --status done --next "…" --level <nível> --cost <USD do /cost> [--tokens N]`.
+O `preflight` mostra as tarefas validadas, as tentativas médias e o custo por tarefa validada, que é a métrica que
+importa: um modelo barato que falha repetidamente pode sair mais caro.
+
 ## `/uah-init approve`
 
 Revise com o usuário o `plan/approved.md` atual (ou a fatia: `plan/slices/slice-N.md`). Se ele aprovar, rode `python3 .uah/uah.py approve` (ou `approve --slice N`).

@@ -23,7 +23,7 @@ autoridade** (sources imutáveis, representações derivadas).
 
 **Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
 rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
-[UAH-lite](#uah-lite-v084--harness-executável-por-projeto) abaixo.
+[UAH-lite](#uah-lite-v090--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -43,7 +43,7 @@ Caminhos declarativos anteriores (continuam válidos):
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
 
-## UAH-lite (v0.8.4) — harness executável por projeto
+## UAH-lite (v0.9.0) — harness executável por projeto
 
 O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
 planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
@@ -230,6 +230,24 @@ python3 .uah/uah.py slice done N             # fecha a fatia; o gate espera a pr
 
 O modelo completo do prompt do `omc-plan` está na `SKILL.md`. O `omc-plan` só planeja: painel e orquestração
 ficam com o specboard e o UAH, e o `CLAUDE.md` continua curto.
+
+### Nível de raciocínio, tentativas e custo (restrições, não um segundo orquestrador)
+
+O OMC executa e escolhe os agentes. O UAH só impõe restrições, sem criar outra fila nem outro roteador:
+
+- **Nível por tarefa** (`nível: leve | padrão | crítico` no plano e nas fatias), mapeado aos agentes do OMC, que já
+  têm modelo fixo. `leve` usa ferramenta determinística primeiro e Haiku (`explore`/`writer`) só se preciso.
+  `padrão` usa Sonnet (`executor`, `scientist`…) com `verifier`. `crítico` usa Opus (`analyst`/`architect`/`critic`)
+  com revisão independente.
+- **Parada por tentativas:** `checkpoint --failed "motivo"` conta as falhas da tarefa. No limite do risco (low 5,
+  medium 3, high 2; o `project.yaml` só pode reduzir com `policy.max_attempts`), a tarefa fica bloqueada e o guarda
+  nega alterações materiais até um humano decidir (`--reset-attempts`, com confirmação).
+- **Custo por tarefa validada:** `checkpoint --status done --cost <USD do /cost> [--tokens N] --level …` grava em
+  `state/tarefas.jsonl`. O `preflight` mostra as tarefas validadas, as tentativas médias e o custo médio por tarefa
+  validada, a métrica que importa (um modelo barato que falha muito pode sair mais caro).
+
+Não há limite rígido de tokens: nem o Claude Code nem o OMC oferecem um que o UAH possa aplicar. Por isso o controle
+é por tentativas e o custo é registrado, não "orçado".
 
 ### O `project.yaml`
 
@@ -696,7 +714,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.8.4 (única versão do produto)
+├── VERSION                   # 0.9.0 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -724,7 +742,7 @@ Universal-Agent-Harness/
 │                             # profiles/ (H0 + risco H1), templates/,
 │                             # integrations/ (catálogo de ferramentas)
 │
-├── tests/test_uah_lite.py    # 62 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias, auditoria, setup-env)
+├── tests/test_uah_lite.py    # 67 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias, auditoria, setup-env, tentativas/custo)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
@@ -752,14 +770,14 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # 62 testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 67 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
-validador em v0.8.4:
+validador em v0.9.0:
 
 ```text
-PASS: Universal Agent Harness 0.8.4
+PASS: Universal Agent Harness 0.9.0
 PASS: 108 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
@@ -770,7 +788,7 @@ PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 
 ## Status
 
-Versão **0.8.4**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
+Versão **0.9.0**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
 catálogo de integrações (Workflow_Digestion, specboard, CalcBoard, publish-documents, sci-figures) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
 parte executável: resolvedor H0–H3 determinístico compilado para o
 Claude Code, gate de plano aprovado e checkpoint de retomada, com

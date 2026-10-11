@@ -5,7 +5,12 @@
   "protected_paths": [],
   "bash_deny": [],
   "bash_ask": [],
-  "settings": {"allow": [], "ask": [], "deny": []},
+  "settings": {
+    "allow": [],
+    "ask": [],
+    "deny": []
+  },
   "plan_gate": false,
-  "g4_checkpoint": "off"
+  "g4_checkpoint": "off",
+  "max_attempts": 5
 }

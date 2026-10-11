@@ -126,6 +126,21 @@
   chemistry/materials/simulation domains, `artigo-teorico`, `relatorio`, `fomento`;
 - 48 behavioral tests.
 
+## 0.9.0 — 2026-10-11
+
+Restrições do UAH sobre a execução do OMC (avaliação da proposta de "Work Dispatcher": rejeitado o dispatcher,
+que duplicaria fila, estado e roteamento; adotadas só as restrições):
+- reasoning level per task (`nível: leve | padrão | crítico`) in plan/slice templates, mapped in SKILL.md to OMC
+  agents with pinned models (Haiku/Sonnet/Opus) and "deterministic tool first";
+- attempt limit: `checkpoint --failed` counts failures per task; at the risk limit (low 5, medium 3, high 2; H2 may
+  only lower via `policy.max_attempts`) the task is blocked, the guard denies material actions and SessionStart
+  says PARE; only a human-confirmed `--reset-attempts` unblocks;
+- cost per validated task: `checkpoint --status done --cost/--tokens/--level` appends to `state/tarefas.jsonl`;
+  preflight reports validated tasks, mean attempts and cost per validated task;
+- verified facts: OMC `routeTask()` exists but is not invoked at runtime by the plugin; `OMC_RUN_BUDGET_TOKENS`
+  does not exist in OMC 5.4.0; no hard token budget is enforceable, so none is claimed;
+- 67 behavioral tests.
+
 ## 0.8.4 — 2026-10-11
 
 - new `uah.py setup-env [--integrations ids|all] [--install]`: reports the machine and, with `--install`,

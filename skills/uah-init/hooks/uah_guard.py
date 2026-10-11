@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-GUARD_VERSION = "0.8.4"
+GUARD_VERSION = "0.9.0"
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MUTATING_ALL_ARGS = {"rm", "rmdir", "unlink", "shred", "truncate", "chmod", "chown", "touch", "tee", "mv"}
@@ -510,6 +510,18 @@ def grant_covering(policy: dict, command: str) -> dict | None:
     return used
 
 
+def attempts_blocked(root: Path) -> str | None:
+    """Id da tarefa travada pelo limite de tentativas falhas (state/current.md), ou None."""
+    try:
+        fm, _ = split_frontmatter((root / "state" / "current.md").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    meta = parse_flat_yaml(fm)
+    if str(meta.get("blocked_by_attempts", "")).lower() == "true":
+        return str(meta.get("task_id") or "?")
+    return None
+
+
 def outside_allowed(raw: str, cwd: Path) -> bool:
     """Fora do projeto, só a área temporária do sistema fica sem confirmação."""
     import tempfile
@@ -567,6 +579,9 @@ def pre_tool_use(payload: dict) -> None:
     gate_on = bool(policy.get("plan_gate"))
     plan_state = plan_status(root)[0] if gate_on else "approved"
     gate_msg = GATE_MESSAGES.get(plan_state, "")
+    stuck = attempts_blocked(root)
+    stuck_msg = (f"tarefa {stuck} BLOQUEADA após o limite de tentativas falhas — pare e peça ao humano para decidir "
+                 "(`uah.py checkpoint --task … --reset-attempts`)") if stuck else ""
 
     if tool == "Bash":
         hit = regex_hit(policy.get("bash_deny", []), command)
@@ -583,6 +598,8 @@ def pre_tool_use(payload: dict) -> None:
         if plan_state != "approved" and not is_readonly(command, policy, root):
             emit("deny", f"gate G1: {gate_msg}. Só leitura e comandos do uah.py até a aprovação "
                          "(`/uah-init approve`).")
+        if stuck and not is_readonly(command, policy, root):
+            emit("deny", stuck_msg + ". Só leitura, edição do plano e comandos do uah.py.")
         if rels is None:
             emit("ask", "comando não pôde ser analisado (aspas desbalanceadas?); confirme.")
         grant = grant_covering(policy, command)
@@ -609,6 +626,8 @@ def pre_tool_use(payload: dict) -> None:
             emit("ask", f"escrita FORA do projeto ({raw}); confirme.")
         if matches_any(rel, immutable):
             emit("deny", f"`{rel}` é imutável por política. Para mudar regras, edite project.yaml e rode compile.")
+        if stuck and not matches_any(rel, policy.get("plan_gate_paths", [])):
+            emit("deny", stuck_msg + f". Só é permitido editar {', '.join(policy.get('plan_gate_paths', []))}.")
         if plan_state != "approved" and not matches_any(rel, policy.get("plan_gate_paths", [])):
             emit("deny", f"gate G1: {gate_msg}. Antes da aprovação só é permitido editar "
                          f"{', '.join(policy.get('plan_gate_paths', []))}.")
@@ -648,6 +667,9 @@ def session_start(_payload: dict) -> None:
                      f"atualizado {st.get('updated_at') or '-'}")
     except (OSError, ValueError):
         lines.append("Estado: state/current.md ausente ou ilegível.")
+    if attempts_blocked(root):
+        lines.append(f"PARE: a tarefa {attempts_blocked(root)} atingiu o limite de tentativas falhas; alterações materiais "
+                     "bloqueadas até um humano decidir (`checkpoint --reset-attempts`).")
     warnings = []
     for key, rel in (("H2", "project.yaml"), ("H3", ".uah/task.yaml")):
         recorded = (policy.get("sources", {}).get(key) or {}).get("sha256")
