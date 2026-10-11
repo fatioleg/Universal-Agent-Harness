@@ -14,7 +14,7 @@
     "revisao-de-literatura",
     "documentos"
   ],
-  "when": "O entregável é um documento formatado (relatório científico/institucional, artigo, parecer, proposta ou projeto de fomento) em PDF e/ou DOCX: fonte única em Quarto, perfis report-visual (Typst), journal-scientific (LaTeX) e word-editable (DOCX ABNT), com preflight, verificação e inspeção visual.",
+  "when": "O entregável é um documento formatado (relatório científico/institucional, artigo, parecer, proposta ou projeto de fomento) em PDF e/ou DOCX: fonte única em Quarto, perfis report-visual (Typst), journal-scientific (LaTeX) e word-editable (DOCX técnico ou ABNT, com números de equação preservados), com preflight, verificação e inspeção visual.",
   "not_when": "Nota rápida ou texto que fica só no repositório (Markdown basta); edital em plataforma web (entregue texto por seção).",
   "how": "/publish-documents → pubdoc.py new → preflight → render → verify → inspeção visual da folha de contato",
   "outputs": [

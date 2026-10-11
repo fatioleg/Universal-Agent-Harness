@@ -67,7 +67,7 @@ execução com o Claude Code. Ele cuida só do que nenhum dos dois faz:
 | [Workflow_Digestion](https://github.com/fatioleg/Workflow_Digestion) | documentos → corpus → grafo → vault do Obsidian | integração opcional |
 | [specboard](https://github.com/fatioleg/specboard) | painel de validação de módulos (executado ≠ verificado) | integração opcional |
 | [CalcBoard](https://github.com/fatioleg/CalcBoard) | painel dos cálculos (ORCA, CP2K, VASP, Gaussian, QE, ASE) | integração opcional |
-| [publish-documents](https://github.com/fatioleg/publish-documents) | PDF/DOCX profissional a partir de Quarto (Typst, LaTeX, Word ABNT) | integração opcional |
+| [publish-documents](https://github.com/fatioleg/publish-documents) | PDF/DOCX profissional a partir de Quarto (Typst, LaTeX, Word técnico ou ABNT) | integração opcional |
 | [sci-figures](https://github.com/fatioleg/sci-figures) | figuras de publicação por especificação (RDKit, ASE, D2, matplotlib) | integração opcional |
 | [ai-memory](https://github.com/akitaonrails/ai-memory) | memória entre sessões/agentes | opcional, não integrado ainda |
 
@@ -175,7 +175,7 @@ listada em `project.yaml → integrations`. A instalação é detectada, nunca p
 | [**Workflow_Digestion**](https://github.com/fatioleg/Workflow_Digestion) | descoberta | há uma pasta com muitos PDFs/DOCX/PPTX a transformar em corpus, grafo de conhecimento e vault do Obsidian (revisão de literatura, edital, base de conhecimento) | `graphify` pede confirmação (alto custo de tokens) |
 | [**specboard**](https://github.com/fatioleg/specboard) | entre o plano e a aprovação; execução | projeto modular em risco medium/high: módulos, contratos pré-registrados, fila do que o humano precisa conferir | `review`/`verify` só pelo humano; `verificacoes.jsonl` imutável; `.specboard/**` e a CLI de planejamento liberados antes da aprovação |
 | [**CalcBoard**](https://github.com/fatioleg/CalcBoard) | execução e validação | há saídas de cálculo (ORCA, CP2K, VASP, Gaussian, QE, ASE) a acompanhar e validar | `painel.py ler` liberado antes da aprovação |
-| [**publish-documents**](https://github.com/fatioleg/publish-documents) | execução e entrega | o entregável é um relatório, artigo, parecer ou proposta em PDF/DOCX: fonte única Quarto, perfis `report-visual` (Typst), `journal-scientific` (LaTeX), `word-editable` (DOCX ABNT), com preflight, verificação e inspeção visual | instalar extensões/templates (`quarto install/add/use`, `tlmgr`) pede confirmação; `preflight`/`doctor` liberados antes da aprovação |
+| [**publish-documents**](https://github.com/fatioleg/publish-documents) | execução e entrega | o entregável é um relatório, artigo, parecer ou proposta em PDF/DOCX: fonte única Quarto, perfis `report-visual` (Typst), `journal-scientific` (LaTeX), `word-editable` (DOCX técnico ou ABNT), com preflight, verificação e inspeção visual | instalar extensões/templates (`quarto install/add/use`, `tlmgr`) pede confirmação; `preflight`/`doctor` liberados antes da aprovação |
 | [**sci-figures**](https://github.com/fatioleg/sci-figures) | execução e entrega | o projeto precisa de figuras de publicação: moléculas 2D (RDKit), estruturas, cristais e superfícies (ASE), fluxogramas (D2) e gráficos de dados (matplotlib), cada uma com `fig.yaml`, manifesto de proveniência e verificação | `figs.py setup` (instala pacotes) pede confirmação; `figs.py doctor` liberado antes da aprovação |
 
 ```bash
