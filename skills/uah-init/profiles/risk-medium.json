@@ -5,10 +5,22 @@
   "protected_paths": [],
   "bash_deny": [],
   "bash_ask": [
-    {"id": "H1M-rm-recursive", "pattern": "\\brm\\s+(-\\S+\\s+)*-\\S*[rR]", "reason": "remoção recursiva"},
-    {"id": "H1M-rewrite", "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b", "reason": "reescrita de histórico"}
+    {
+      "id": "H1M-rm-recursive",
+      "pattern": "(?m)(^|[;&|(]\\s*|(\\b(xargs|exec|nohup|time|env)|-exec)\\s+)rm\\s+(-\\S+\\s+)*-\\S*[rR]",
+      "reason": "remoção recursiva"
+    },
+    {
+      "id": "H1M-rewrite",
+      "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b",
+      "reason": "reescrita de histórico"
+    }
   ],
-  "settings": {"allow": [], "ask": [], "deny": []},
+  "settings": {
+    "allow": [],
+    "ask": [],
+    "deny": []
+  },
   "plan_gate": true,
   "g4_checkpoint": "off"
 }

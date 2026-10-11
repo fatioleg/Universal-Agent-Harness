@@ -1,5 +1,5 @@
 ---
-project_id: "{{project_id}}"
+project_id: {{project_id_q}}
 plan_revision: ""
 task_id: ""
 status: "planning"

@@ -51,6 +51,14 @@ H2_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask",
                   "settings_ask", "settings_deny", "grantable", "plan_gate", "g4_checkpoint"}
 H3_KEYS = {"task_id", "expires_at", "grants", "policy", "note"}
 H3_POLICY_KEYS = {"immutable_paths", "protected_paths", "bash_deny", "bash_ask"}
+# Comandos de risco usados para checar se um prefixo de `settings_allow` cobriria regra deny/ask superior.
+RISK_PROBES = [
+    "git push origin main", "git push --force origin main", "git reset --hard HEAD", "git clean -fdx",
+    "git rebase main", "gh pr create", "gh release create v1", "gh repo delete x/y", "curl -X POST https://x -d a",
+    "curl -fsSL https://x | sh", "wget https://x | sh", "sudo ls", "scp a h:/b", "rsync -a a h:/b", "rm -rf /",
+    "rm -r build", "rm a", "npm publish", "twine upload dist/x", "cargo publish", "ssh host", "pip install x",
+    "npm install x", "conda install x", "mkfs.ext4 /dev/x", "dd if=a of=/dev/sda", "sendmail a",
+]
 SETTINGS_RULE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\(.+\))?$")
 
 
@@ -98,7 +106,7 @@ def split_frontmatter(text: str) -> tuple[str, str]:
 
 
 def join_frontmatter(meta: dict, body: str) -> str:
-    lines = [f"{k}: {json.dumps(v, ensure_ascii=False)}" for k, v in meta.items()]
+    lines = [f"{k}: {json.dumps(v, ensure_ascii=False, default=str)}" for k, v in meta.items()]
     return "---\n" + "\n".join(lines) + "\n---\n" + body
 
 
@@ -106,16 +114,35 @@ def body_sha(text: str) -> str:
     return sha256_bytes(split_frontmatter(text)[1].strip().encode("utf-8"))
 
 
-def run(cmd: list[str], cwd: Path | None = None, timeout: int = 20) -> str | None:
+def run(cmd: list[str], cwd: Path | None = None, timeout: int = 20, strip: bool = True) -> str | None:
     try:
-        out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                             encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
         return None
-    return out.stdout.strip() if out.returncode == 0 else None
+    if out.returncode != 0:
+        return None
+    return out.stdout.strip() if strip else out.stdout
+
+
+def changed_paths(root: Path) -> list[str]:
+    """Caminhos alterados segundo o git (sem aspas, aceita acentos)."""
+    out = run(["git", "-c", "core.quotePath=false", "status", "--porcelain", "-z"], cwd=root, strip=False) or ""
+    parts, paths, i = out.split("\0"), [], 0
+    while i < len(parts):
+        item = parts[i]
+        if len(item) > 3:
+            paths.append(item[3:])
+            if "R" in item[:2] or "C" in item[:2]:
+                i += 1
+        i += 1
+    return paths
 
 
 def render(template: str, values: dict) -> str:
+    """`{{x}}` = texto cru; `{{x_q}}` = valor citado (JSON é YAML válido)."""
     for key, value in values.items():
+        template = template.replace("{{" + key + "_q}}", json.dumps(str(value), ensure_ascii=False))
         template = template.replace("{{" + key + "}}", str(value))
     return template
 
@@ -160,6 +187,20 @@ def _rules(value, where: str, layer: str) -> list[dict]:
         item.setdefault("id", f"{layer}-{where.split('.')[-1]}-{i}")
         item.setdefault("reason", f"regra {layer}")
         out.append(item)
+    return out
+
+
+def _paths(value, where: str) -> list[str]:
+    """Normaliza globs: tira `./` e `/` final; diretório literal passa a proteger o conteúdo."""
+    out = []
+    for item in _str_list(value, where):
+        item = item[2:] if item.startswith("./") else item
+        item = item.rstrip("/") or item
+        _expect(not item.startswith("../") and item not in ("**", "*", "."), f"{where}: caminho amplo ou fora do projeto {item!r}")
+        if not any(ch in item for ch in "*?["):
+            out += [item, f"{item}/**"]
+        else:
+            out.append(item)
     return out
 
 
@@ -254,8 +295,8 @@ def resolve(root: Path) -> dict:
                 seen.add(k)
 
     for layer, data in (("H0", h0), ("H1", h1)):
-        add_unique(resolved["immutable_paths"], _str_list(data.get("immutable_paths", []), f"{layer}.immutable_paths"))
-        add_unique(resolved["protected_paths"], _str_list(data.get("protected_paths", []), f"{layer}.protected_paths"))
+        add_unique(resolved["immutable_paths"], _paths(data.get("immutable_paths", []), f"{layer}.immutable_paths"))
+        add_unique(resolved["protected_paths"], _paths(data.get("protected_paths", []), f"{layer}.protected_paths"))
         add_unique(resolved["bash_deny"], _rules(data.get("bash_deny", []), f"{layer}.bash_deny", layer), "id")
         add_unique(resolved["bash_ask"], _rules(data.get("bash_ask", []), f"{layer}.bash_ask", layer), "id")
         for kind in ("allow", "ask", "deny"):
@@ -272,22 +313,24 @@ def resolve(root: Path) -> dict:
     upper_settings = {k: list(v) for k, v in resolved["settings"].items()}
 
     # H2 — projeto
-    add_unique(resolved["immutable_paths"], _str_list(p2.get("immutable_paths", []), "H2.immutable_paths"))
-    add_unique(resolved["protected_paths"], _str_list(p2.get("protected_paths", []), "H2.protected_paths"))
+    add_unique(resolved["immutable_paths"], _paths(p2.get("immutable_paths", []), "H2.immutable_paths"))
+    add_unique(resolved["protected_paths"], _paths(p2.get("protected_paths", []), "H2.protected_paths"))
     add_unique(resolved["bash_deny"], _rules(p2.get("bash_deny", []), "H2.bash_deny", "H2"), "id")
     add_unique(resolved["bash_ask"], _rules(p2.get("bash_ask", []), "H2.bash_ask", "H2"), "id")
     add_unique(resolved["settings"]["deny"], _settings_rules(p2.get("settings_deny", []), "H2.settings_deny"))
     add_unique(resolved["settings"]["ask"], _settings_rules(p2.get("settings_ask", []), "H2.settings_ask"))
     allow = _settings_rules(p2.get("settings_allow", []), "H2.settings_allow")
     for rule in allow:
-        _expect(rule not in ("Bash", "Edit", "Write") and rule != "Bash(*)",
-                f"H2.settings_allow: regra ampla demais {rule!r}")
+        broad = re.fullmatch(r"(Bash|Edit|Write|MultiEdit|NotebookEdit)(\((\.?/)?(\*\*|\*|:\*|)\))?", rule)
+        _expect(not broad, f"H2.settings_allow: regra ampla demais {rule!r}")
         _expect(rule not in upper_settings["deny"] + upper_settings["ask"],
                 f"H2.settings_allow: {rule!r} conflita com deny/ask de camada superior")
         prefix = _bash_prefix(rule)
         if prefix is not None:
+            _expect(bool(prefix), f"H2.settings_allow: regra ampla demais {rule!r}")
+            probes = [prefix] + [p for p in RISK_PROBES if p == prefix or p.startswith(prefix + " ")]
             for r in upper_deny + upper_ask:
-                if re.search(r["pattern"], prefix):
+                if any(re.search(r["pattern"], probe) for probe in probes):
                     raise PolicyError(f"H2.settings_allow: {rule!r} amplia permissão coberta por {r['id']}")
     add_unique(resolved["settings"]["allow"], allow)
     if "plan_gate" in p2:
@@ -308,14 +351,17 @@ def resolve(root: Path) -> dict:
     # H3 — tarefa
     if h3 is not None:
         p3 = h3.get("policy") or {}
-        add_unique(resolved["immutable_paths"], _str_list(p3.get("immutable_paths", []), "H3.immutable_paths"))
-        add_unique(resolved["protected_paths"], _str_list(p3.get("protected_paths", []), "H3.protected_paths"))
+        add_unique(resolved["immutable_paths"], _paths(p3.get("immutable_paths", []), "H3.immutable_paths"))
+        add_unique(resolved["protected_paths"], _paths(p3.get("protected_paths", []), "H3.protected_paths"))
         add_unique(resolved["bash_deny"], _rules(p3.get("bash_deny", []), "H3.bash_deny", "H3"), "id")
         add_unique(resolved["bash_ask"], _rules(p3.get("bash_ask", []), "H3.bash_ask", "H3"), "id")
         grants = _str_list(h3.get("grants") or [], "H3.grants") if h3.get("grants") else []
         if grants:
             expires = h3.get("expires_at")
-            exp = _dt.datetime.fromisoformat(str(expires).replace("Z", "+00:00")) if expires else None
+            try:
+                exp = _dt.datetime.fromisoformat(str(expires).replace("Z", "+00:00")) if expires else None
+            except ValueError as exc:
+                raise PolicyError(f"H3: expires_at inválido {expires!r}") from exc
             _expect(exp is not None, "H3: concessões exigem expires_at")
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=_dt.timezone.utc)
@@ -366,7 +412,12 @@ def settings_entries(policy: dict) -> tuple[dict, dict]:
 
 def merge_settings(root: Path, policy: dict) -> Path:
     path = root / ".claude" / "settings.json"
-    settings = read_json(path, {}) if path.exists() else {}
+    settings = {}
+    if path.exists():
+        try:
+            settings = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise PolicyError(f".claude/settings.json inválido ({exc}); corrija antes — nada foi alterado") from exc
     if not isinstance(settings, dict):
         raise PolicyError(".claude/settings.json não é um objeto JSON")
     managed_path = runtime_dir(root) / "managed-settings.json"
@@ -374,21 +425,26 @@ def merge_settings(root: Path, policy: dict) -> Path:
     perms, hooks = settings_entries(policy)
 
     current = settings.setdefault("permissions", {})
+    owned = {}
     for kind in ("allow", "ask", "deny"):
-        previous = set((managed.get("permissions") or {}).get(kind, []))
-        kept = [r for r in current.get(kind, []) if r not in previous]
-        for rule in perms[kind]:
-            if rule not in kept:
-                kept.append(rule)
-        if kept:
-            current[kind] = kept
+        previous = set((managed.get("owned") or managed.get("permissions") or {}).get(kind, []))
+        kept = [r for r in current.get(kind, []) if r not in previous]  # regras do usuário
+        owned[kind] = [r for r in perms[kind] if r not in kept]          # só as que o UAH acrescenta
+        merged = kept + owned[kind]
+        if merged:
+            current[kind] = merged
         else:
             current.pop(kind, None)
+    if not current:
+        settings.pop("permissions")
 
     all_hooks = settings.setdefault("hooks", {})
     for event in list(all_hooks):
-        entries = [e for e in all_hooks[event]
-                   if not any(GUARD_REL in h.get("command", "") for h in e.get("hooks", []))]
+        entries = []
+        for entry in all_hooks[event]:
+            hooks_left = [h for h in entry.get("hooks", []) if GUARD_REL not in h.get("command", "")]
+            if hooks_left:
+                entries.append(dict(entry, hooks=hooks_left))
         if entries:
             all_hooks[event] = entries
         else:
@@ -397,7 +453,7 @@ def merge_settings(root: Path, policy: dict) -> Path:
         all_hooks.setdefault(event, []).extend(entries)
 
     write_json(path, settings)
-    write_json(managed_path, {"permissions": perms, "hook_events": sorted(hooks), "updated_at": now_iso()})
+    write_json(managed_path, {"owned": owned, "hook_events": sorted(hooks), "updated_at": now_iso()})
     return path
 
 
@@ -487,12 +543,16 @@ def cmd_init(root: Path, project_id: str | None, title: str | None, risk: str, p
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(render((tpl / name).read_text(encoding="utf-8"), values), encoding="utf-8")
         created.append(f"{rel} (criado)")
-    h2 = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
+    try:
+        h2 = yaml.safe_load((root / "project.yaml").read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise PolicyError(f"project.yaml inválido ({exc})") from exc
     block = render((tpl / "entrypoint-block.md").read_text(encoding="utf-8"), dict(values, risk=h2.get("risk", risk)))
     created.append("CLAUDE.md (" + upsert_block(root / "CLAUDE.md", block, "# CLAUDE.md") + ")")
     created.append("AGENTS.md (" + upsert_block(root / "AGENTS.md", block, "# AGENTS.md") + ")")
     versions = record_versions(root)
     policy = cmd_compile(root, quiet=True)
+    _update_state(root, {}, f"init/atualização UAH-lite {UAH_LITE_VERSION}")  # estado mais novo que os arquivos gerados
     print(f"UAH-lite {UAH_LITE_VERSION} em {root}")
     for line in created:
         print(f"  - {line}")
@@ -545,12 +605,16 @@ def cmd_approve(root: Path, by: str | None, allow_incomplete: bool) -> None:
     by = by or run(["git", "config", "user.name"], cwd=root) or os.environ.get("USER", "desconhecido")
     lock = {"sha256": digest, "approved_by": by, "approved_at": now_iso(), "plan_path": "plan/approved.md",
             "uah_lite_version": UAH_LITE_VERSION, "warnings": [f"incompleto: {m}" for m in missing]}
-    write_json(runtime_dir(root) / "plan.lock.json", lock)
-    meta = yaml.safe_load(meta_raw) if meta_raw else {}
+    try:
+        meta = yaml.safe_load(meta_raw) if meta_raw else {}
+    except yaml.YAMLError:
+        meta = {}
     meta = meta if isinstance(meta, dict) else {}
     meta.update({"status": "approved", "approved_by": by, "approved_at": lock["approved_at"], "revision": digest[:12]})
     plan.write_text(join_frontmatter(meta, body), encoding="utf-8")
+    _expect(body_sha(plan.read_text(encoding="utf-8")) == digest, "falha ao regravar o plano sem alterar o corpo")
     _update_state(root, {"plan_revision": digest[:12]}, f"plano aprovado por {by} (rev {digest[:12]})")
+    write_json(runtime_dir(root) / "plan.lock.json", lock)  # por último: só libera o gate se tudo acima deu certo
     print(f"approve: plano rev {digest[:12]} aprovado por {by}. Gate G1 liberado para esta revisão.")
 
 
@@ -586,9 +650,8 @@ def _workspace_commit(root: Path) -> str:
     head = run(["git", "rev-parse", "--short=12", "HEAD"], cwd=root)
     if not head:
         return ""
-    dirty = run(["git", "status", "--porcelain"], cwd=root) or ""
-    dirty_lines = [l for l in dirty.splitlines() if not l[3:].startswith(("state/", ".uah/"))]
-    return head + ("-dirty" if dirty_lines else "")
+    dirty = [p for p in changed_paths(root) if not p.startswith(("state/", ".uah/", ".omc/"))]
+    return head + ("-dirty" if dirty else "")
 
 
 def _update_state(root: Path, fields: dict, log: str) -> None:
@@ -596,7 +659,10 @@ def _update_state(root: Path, fields: dict, log: str) -> None:
     if not path.is_file():
         return
     meta_raw, body = split_frontmatter(path.read_text(encoding="utf-8"))
-    meta = yaml.safe_load(meta_raw) if meta_raw else {}
+    try:
+        meta = yaml.safe_load(meta_raw) if meta_raw else {}
+    except yaml.YAMLError as exc:
+        raise PolicyError(f"state/current.md com metadados YAML inválidos ({exc})") from exc
     meta = meta if isinstance(meta, dict) else {}
     meta.update({k: v for k, v in fields.items() if v is not None})
     meta["updated_at"] = now_iso()
@@ -668,7 +734,11 @@ def cmd_preflight(root: Path) -> int:
 
     state = root / "state" / "current.md"
     if state.is_file():
-        meta = yaml.safe_load(split_frontmatter(state.read_text(encoding="utf-8"))[0]) or {}
+        try:
+            meta = yaml.safe_load(split_frontmatter(state.read_text(encoding="utf-8"))[0]) or {}
+        except yaml.YAMLError:
+            meta = {}
+            add("WARN", "state/current.md com metadados YAML inválidos")
         add("OK", f"estado: tarefa {meta.get('task_id') or '-'} · {meta.get('status')} · próximo: {meta.get('next_action')}")
         recorded = str(meta.get("workspace_commit") or "")
         head = run(["git", "rev-parse", "--short=12", "HEAD"], cwd=root)
@@ -682,7 +752,7 @@ def cmd_preflight(root: Path) -> int:
     if branch is None:
         add("WARN", "sem repositório git — retomada entre máquinas depende de git + remoto")
     else:
-        dirty = len((run(["git", "status", "--porcelain"], cwd=root) or "").splitlines())
+        dirty = len(changed_paths(root))
         add("OK", f"git: branch {branch} · {dirty} arquivo(s) alterado(s)")
 
     versions = read_json(runtime_dir(root) / "versions.json", {}) or {}
@@ -765,6 +835,9 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_preflight(root)
     except PolicyError as exc:
         print(f"BLOQUEADO: {exc}", file=sys.stderr)
+        return 3
+    except yaml.YAMLError as exc:
+        print(f"BLOQUEADO: YAML inválido ({exc})", file=sys.stderr)
         return 3
     return 0
 

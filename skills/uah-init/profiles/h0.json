@@ -13,17 +13,17 @@
   "bash_deny": [
     {
       "id": "H0-rm-root",
-      "pattern": "\\brm\\s+(-\\S+\\s+)*(/\\*?|~/?\\*?|\\$HOME/?\\*?|\\$\\{HOME\\}/?\\*?)(\\s|;|&|$)",
+      "pattern": "\\brm\\s+(-\\S+\\s+)*[\\\"']?(/\\*?|~/?\\*?|\\$HOME/?\\*?|\\$\\{HOME\\}/?\\*?|\\./?\\*?|\\.\\.)[\\\"']?(\\s|;|&|\\||$)",
       "reason": "remoção recursiva da raiz ou da home"
     },
     {
       "id": "H0-pipe-shell",
-      "pattern": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(ba|z|da)?sh\\b",
+      "pattern": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?((ba|z|da|k)?sh|python[0-9.]*|perl|ruby|node)\\b",
       "reason": "executar script baixado da internet sem revisão"
     },
     {
       "id": "H0-force-push",
-      "pattern": "\\bgit\\s+push(?=\\s|$).*\\s(--force|-f)(\\s|$)",
+      "pattern": "\\bgit\\s+push(?=\\s|$).*(\\s(--force|-f)(\\s|$)|\\s\\+\\S+)",
       "reason": "force push reescreve histórico remoto"
     },
     {
@@ -40,7 +40,7 @@
   "bash_ask": [
     {
       "id": "H0-approve",
-      "pattern": "\\buah\\.py\\b.*(\\bapprove\\b|--grant\\b)",
+      "pattern": "\\buah\\.py\\s+(--root\\s+\\S+\\s+)?(approve\\b|task\\b.*\\s--grant\\b)",
       "reason": "aprovar o plano ou conceder permissão temporária é decisão humana",
       "locked": true
     },
@@ -66,7 +66,7 @@
     },
     {
       "id": "H0-http-send",
-      "pattern": "\\bcurl\\b.*(\\s-X\\s*(POST|PUT|PATCH|DELETE)\\b|\\s(-d|--data\\S*|-F|--form|-T|--upload-file)(\\s|=))",
+      "pattern": "\\bcurl\\b.*(\\s-X\\s*(POST|PUT|PATCH|DELETE)\\b|\\s(-d|--data\\S*|-F|--form|-T|--upload-file|--json)(\\s|=))",
       "reason": "envio de dados para serviço externo"
     },
     {
@@ -76,7 +76,7 @@
     },
     {
       "id": "H0-sudo",
-      "pattern": "\\bsudo\\b",
+      "pattern": "(?m)(^|[;&|(]\\s*|(\\b(xargs|exec|nohup|time|env)|-exec)\\s+)sudo\\b",
       "reason": "elevação de privilégio"
     },
     {

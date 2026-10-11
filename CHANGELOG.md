@@ -77,7 +77,7 @@
 - deterministic fail-closed H0–H3 resolver compiled to `.claude/settings.json` permissions and hooks;
 - plan approval bound to the sha256 of the plan body (G1); checkpoint/resume state in `state/current.md` (G4);
 - OMC bound by artifacts (`.omc/plans`, `.omc/specs`) and pinned with `omc capabilities lock/check`;
-- added `tests/test_uah_lite.py` (16 behavioral tests covering AT-01/02/03/05/07/09/14) and `docs/uah-lite.md`;
+- added `tests/test_uah_lite.py` (30 behavioral tests: AT-01/02/03/05/07/09/14 plus 14 regressions from an independent review — grant scope, fail-closed guard, quote-aware shell parsing, literal-directory protection, YAML-safe init, G4 with accented paths) and `docs/uah-lite.md`;
 - documented AD-014.
 
 ## 0.1.0 — 2026-08-29

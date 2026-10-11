@@ -2,12 +2,12 @@
 # Depois de editar, rode: python3 .uah/uah.py compile
 uah_lite: "1"
 project:
-  id: {{project_id}}
-  title: "{{title}}"
+  id: {{project_id_q}}
+  title: {{title_q}}
   domains: []            # ex.: [literatura, quimica-computacional, software, fomento]
 risk: {{risk}}           # low | medium | high (escolhe o overlay H1 em .uah/profiles/)
 runtime:
-  python: {{python}}     # comando que os hooks usam (no Windows nativo, normalmente "python")
+  python: {{python_q}}     # comando que os hooks usam (no Windows nativo, normalmente "python")
 policy:
   immutable_paths: []    # nunca alterar, ex.: ["data/raw/**", "references/pdfs/**"]
   protected_paths: []    # alterar só com confirmação

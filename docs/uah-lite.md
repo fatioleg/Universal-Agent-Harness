@@ -46,7 +46,7 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 30 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14 e 14 regressões da revisão independente) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
 
 ## Limites conhecidos

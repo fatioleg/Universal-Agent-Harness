@@ -1,6 +1,6 @@
 ---
 status: draft
-project_id: {{project_id}}
+project_id: {{project_id_q}}
 ---
 # Plano — {{title}}
 

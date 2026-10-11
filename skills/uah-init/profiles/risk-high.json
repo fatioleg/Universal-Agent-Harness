@@ -5,12 +5,32 @@
   "protected_paths": [],
   "bash_deny": [],
   "bash_ask": [
-    {"id": "H1H-rm", "pattern": "\\brm\\b", "reason": "qualquer remoção de arquivo"},
-    {"id": "H1H-rewrite", "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b", "reason": "reescrita de histórico"},
-    {"id": "H1H-ssh", "pattern": "\\bssh\\b", "reason": "execução em máquina remota"},
-    {"id": "H1H-install", "pattern": "\\b(pip3?|uv\\s+pip|conda|mamba|npm|pnpm|yarn|cargo|apt(-get)?)\\s+(install|add|i)\\b", "reason": "instalação de dependência (cadeia de suprimentos)"}
+    {
+      "id": "H1H-rm",
+      "pattern": "(?m)(^|[;&|(]\\s*|(\\b(xargs|exec|nohup|time|env)|-exec)\\s+)rm\\s",
+      "reason": "qualquer remoção de arquivo"
+    },
+    {
+      "id": "H1H-rewrite",
+      "pattern": "\\bgit\\s+(rebase|filter-branch|filter-repo)\\b",
+      "reason": "reescrita de histórico"
+    },
+    {
+      "id": "H1H-ssh",
+      "pattern": "(?m)(^|[;&|(]\\s*|(\\b(xargs|exec|nohup|time|env)|-exec)\\s+)ssh\\s",
+      "reason": "execução em máquina remota"
+    },
+    {
+      "id": "H1H-install",
+      "pattern": "\\b(pip3?|uv\\s+pip|conda|mamba|npm|pnpm|yarn|cargo|apt(-get)?)\\s+(install|add|i)\\b|\\buv\\s+add\\b",
+      "reason": "instalação de dependência (cadeia de suprimentos)"
+    }
   ],
-  "settings": {"allow": [], "ask": [], "deny": []},
+  "settings": {
+    "allow": [],
+    "ask": [],
+    "deny": []
+  },
   "plan_gate": true,
   "g4_checkpoint": "block"
 }
