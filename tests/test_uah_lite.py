@@ -661,6 +661,21 @@ class IntegrationTests(_Base):
         self.assertEqual(p.bash("quarto use template quarto-journals/acs"), "ask")
         self.assertIsNone(p.bash("quarto render document.qmd --to docx"))
 
+    def test_sci_figures_gate_and_setup(self):
+        p = self.make(risk="medium")
+        p.edit_yaml(lambda d: d["project"].update(domains=["dft"]))
+        line = [l for l in p.uah("integrations").stdout.splitlines() if l.startswith("sci-figures")][0]
+        self.assertIn("RECOMENDADA", line)
+        self.assertEqual(p.uah("integrations", "enable", "sci-figures").returncode, 0)
+        self.assertIsNone(p.bash("python3 ~/.claude/skills/sci-figures/scripts/figs.py doctor"))
+        self.assertEqual(p.bash("python3 /x/figs.py render energia"), "deny")  # só depois do approve
+        p.write_plan()
+        p.uah("approve")
+        self.assertIsNone(p.bash("python3 /x/figs.py render energia"))
+        self.assertIsNone(p.bash("python3 /x/figs.py --dir figs verify"))
+        self.assertEqual(p.bash("python3 /x/figs.py setup"), "ask")
+        self.assertEqual(p.bash("python3 /x/figs.py --dir figs setup"), "ask")
+
     def test_install_from_pinned_catalog_entry(self):
         p = self.make(risk="low")
         src = p.root.parent / "remote-skill"

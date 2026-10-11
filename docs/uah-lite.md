@@ -1,4 +1,4 @@
-# UAH-lite (v0.8.1)
+# UAH-lite (v0.8.2)
 
 Implementação mínima e executável da recomendação da auditoria de 11/10/2026: o UAH deixa de ser só
 documentação e passa a **compilar** as regras H0–H3 para o ponto onde elas podem ser aplicadas de fato, ou seja,
@@ -52,6 +52,7 @@ então a mesma política vale em máquinas diferentes.
 | [specboard](https://github.com/fatioleg/specboard) | entre `import-plan` e `approve`; execução | projeto modular medium/high: módulos, contratos pré-registrados, fila de verificação humana | `review`/`verify` negados ao agente; `verificacoes.jsonl` imutável; `.specboard/**` e `specboard.py init/validate/queue/build/lock/amend` liberados antes da aprovação |
 | [CalcBoard](https://github.com/fatioleg/CalcBoard) | execução e validação | saídas de ORCA, CP2K, VASP, Gaussian, QE, ASE | `painel.py ler` liberado antes da aprovação |
 | [publish-documents](https://github.com/fatioleg/publish-documents) | execução e entrega | documento formatado em PDF/DOCX (relatório, artigo, parecer, proposta) via Quarto: perfis report-visual, journal-scientific e word-editable (ABNT) | `quarto install/add/use` e `tlmgr install` pedem confirmação; `pubdoc.py preflight/doctor` liberados antes da aprovação |
+| [sci-figures](https://github.com/fatioleg/sci-figures) | execução e entrega | figuras de publicação por especificação: moléculas 2D (RDKit), estruturas, cristais e superfícies (ASE), fluxogramas (D2), gráficos de dados (matplotlib), com manifesto e verificação | `figs.py setup` pede confirmação; `figs.py doctor` liberado antes da aprovação |
 
 Comandos: `uah.py integrations` (lista + recomendações por `project.domains` e risco),
 `integrations install <id>` (clona em `~/.claude/tools/` e liga a skill em `~/.claude/skills/`),
@@ -95,7 +96,7 @@ ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init
 
 ## Testes
 
-`python -m unittest discover -s tests -v`: 47 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 10 de integrações; 7 de fatias) sem rede e sem LLM.
+`python -m unittest discover -s tests -v`: 48 testes comportamentais (AT-01, 02, 03, 05, 07, 09, 14; 14 regressões da revisão independente; 11 de integrações; 7 de fatias) sem rede e sem LLM.
 Verificado manualmente com Claude Code 2.1.296 (`claude -p`): o hook nega `Write` com o plano pendente e libera depois de `approve`.
 
 ## Limites conhecidos

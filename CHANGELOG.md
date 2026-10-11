@@ -117,6 +117,15 @@
   approval; recommended for `artigo-teorico`, `fomento`, `edital`, `relatorio`, `revisao-de-literatura`, `documentos`;
 - 47 behavioral tests.
 
+## 0.8.2 — 2026-10-11
+
+- added the `sci-figures` integration (catalog entry) for the new skill https://github.com/fatioleg/sci-figures:
+  publication figures from short specs — 2D molecules (RDKit, ACS 1996), structures, crystals and surfaces (ASE),
+  diagrams (D2) and data plots (matplotlib, colour-blind-safe journal style), with provenance manifest and verify;
+- rules: `figs.py setup` (installs packages) asks; `figs.py doctor` allowed before plan approval; recommended for
+  chemistry/materials/simulation domains, `artigo-teorico`, `relatorio`, `fomento`;
+- 48 behavioral tests.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

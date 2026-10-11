@@ -1,0 +1,55 @@
+{
+  "id": "sci-figures",
+  "title": "sci-figures",
+  "repo": "https://github.com/fatioleg/sci-figures",
+  "skill_name": "sci-figures",
+  "skill_subdir": "sci-figures",
+  "kind": "skill",
+  "stage": "execução e entrega",
+  "domains": [
+    "artigo-teorico",
+    "quimica-computacional",
+    "modelagem-molecular",
+    "simulacao",
+    "dft",
+    "materiais",
+    "relatorio",
+    "fomento"
+  ],
+  "when": "O projeto precisa de figuras de publicação: moléculas 2D (RDKit, ACS 1996), estruturas de moléculas, aglomerados, cristais e superfícies (ASE), fluxogramas e pipelines (D2) ou gráficos de dados (matplotlib, estilo de periódico), cada uma com especificação curta, manifesto de proveniência e verificação.",
+  "not_when": "Projeto sem figuras ou só com capturas de tela; painel interativo de cálculos (use CalcBoard); ilustração de capa (Blender, manual).",
+  "how": "/sci-figures → figs.py new → editar fig.yaml → render → verify → inspeção visual da folha de contato → qmd",
+  "outputs": [
+    "figures/<id>/fig.yaml",
+    "figures/<id>/<id>.svg|*.pdf|*.png",
+    "figures/<id>/manifest.json",
+    "figures/_review/contato.png"
+  ],
+  "requires": [
+    "Python 3 + venv (figs.py setup instala RDKit, ASE, matplotlib, cairosvg, Pillow, PyYAML)",
+    "D2 >= 0.6 (diagramas)",
+    "opcional: PyMOL, VESTA, POV-Ray"
+  ],
+  "policy": {
+    "bash_ask": [
+      {
+        "id": "INT-SF-setup",
+        "pattern": "\\bfigs\\.py\\s+(--dir\\s+\\S+\\s+)?setup\\b",
+        "reason": "figs.py setup baixa e instala pacotes Python (RDKit, ASE, matplotlib) num venv"
+      }
+    ],
+    "gate_cli": [
+      {
+        "script": "figs.py",
+        "subcommands": [
+          "doctor"
+        ]
+      }
+    ]
+  },
+  "advice": [
+    "Figura de dados vem de arquivo de dados versionado (inputs:) e de script; nunca de imagem gerada por IA.",
+    "Use os portões como critérios de aceite da fatia: verify sem FAIL e folha de contato inspecionada.",
+    "Com publish-documents, inclua as figuras com `figs.py qmd <id> --relative-to publication`."
+  ]
+}
