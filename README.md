@@ -23,7 +23,7 @@ autoridade** (sources imutáveis, representações derivadas).
 
 **Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
 rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
-[UAH-lite](#uah-lite-v083--harness-executável-por-projeto) abaixo.
+[UAH-lite](#uah-lite-v084--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -43,7 +43,7 @@ Caminhos declarativos anteriores (continuam válidos):
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
 
-## UAH-lite (v0.8.3) — harness executável por projeto
+## UAH-lite (v0.8.4) — harness executável por projeto
 
 O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
 planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
@@ -71,12 +71,36 @@ execução com o Claude Code. Ele cuida só do que nenhum dos dois faz:
 | [sci-figures](https://github.com/fatioleg/sci-figures) | figuras de publicação por especificação (RDKit, ASE, D2, matplotlib) | integração opcional |
 | [ai-memory](https://github.com/akitaonrails/ai-memory) | memória entre sessões/agentes | opcional, não integrado ainda |
 
-### Instalação (uma vez por máquina)
+### Instalação do zero (uma vez por máquina)
 
 ```bash
-git clone git@github.com:fatioleg/Universal-Agent-Harness.git
-ln -s "$PWD/Universal-Agent-Harness/skills/uah-init" ~/.claude/skills/uah-init
+git clone https://github.com/fatioleg/Universal-Agent-Harness.git
+cd Universal-Agent-Harness
+python3 -c "import yaml" || sudo apt install python3-yaml   # PyYAML: único requisito Python do uah.py
+python3 skills/uah-init/uah.py setup-env --integrations all            # relatório: o que existe e o que falta
+python3 skills/uah-init/uah.py setup-env --integrations all --install  # instala o que dá sem sudo
 ```
+
+O que o `setup-env --install` faz sozinho, **sem `sudo`**, tudo no seu usuário:
+
+| Item | Como |
+|---|---|
+| skill `uah-init` | liga `~/.claude/skills/uah-init` ao clone |
+| skills do catálogo (specboard, CalcBoard, Workflow_Digestion, publish-documents, sci-figures) | clona cada repositório **no commit fixado** do catálogo e liga a skill |
+| Quarto 1.10.19 (publish-documents) e D2 0.9.0 (sci-figures) | baixa a versão fixa, **confere o SHA-256** no arquivo de checksums do projeto, extrai em `~/.local/opt` e liga em `~/.local/bin` |
+| ambiente Python do sci-figures (RDKit, ASE, matplotlib, cairosvg) | roda `figs.py setup` |
+
+O que ele só **explica**, com o comando exato, porque exige outra ferramenta ou `sudo`:
+
+| Item | Por quê | Comando indicado |
+|---|---|---|
+| OMC | é plugin do Claude Code | `/plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode`, `/plugin install oh-my-claudecode`, `/omc-setup` |
+| molar_vis (`molecule-3d`, opcional) | precisa de Rust e compilação | `git clone https://github.com/yesint/molar_vis` + `maturin develop --release` no venv do sci-figures |
+| XeLaTeX, LibreOffice, poppler, librsvg | pacotes do sistema | `sudo apt install texlive-xetex texlive-lang-portuguese libreoffice-writer poppler-utils librsvg2-bin` (só os que faltarem) |
+
+Sem `--integrations`, o `setup-env` usa as integrações ativas no `project.yaml` do projeto atual. Dentro de um
+projeto com o UAH, `setup-env --install` pede confirmação humana, como toda instalação. Garanta que
+`~/.local/bin` esteja no `PATH`; o relatório avisa se não estiver.
 
 ### Fluxo
 
@@ -147,6 +171,7 @@ conduz tudo isso por você.
 | `explain` | mostra as regras efetivas em linguagem simples, com a camada de origem de cada uma |
 | `integrations [list]` | lista o catálogo, mostrando o que está ativo e instalado e o que é recomendado para o projeto |
 | `integrations install <id>` | clona o repositório em `~/.claude/tools/` e liga a skill em `~/.claude/skills/` |
+| `setup-env [--integrations ids\|all] [--install]` | relatório da máquina; com `--install`, instala sem sudo (skills fixadas, Quarto, D2, venv) e explica OMC, molar_vis e pacotes de sistema |
 | `integrations enable\|disable <id>` | ativa/desativa no `project.yaml` (preserva comentários) e recompila |
 | `import-plan <arquivo> --slice N` / `approve --slice N` | traz e aprova uma fatia de MVP (a aprovada fica ativa) |
 | `slice [list\|new N\|activate N\|done N]` | gerencia as fatias; `done` fecha o gate até a próxima |
@@ -671,7 +696,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.8.3 (única versão do produto)
+├── VERSION                   # 0.8.4 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -699,7 +724,7 @@ Universal-Agent-Harness/
 │                             # profiles/ (H0 + risco H1), templates/,
 │                             # integrations/ (catálogo de ferramentas)
 │
-├── tests/test_uah_lite.py    # 58 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias, auditoria)
+├── tests/test_uah_lite.py    # 62 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias, auditoria, setup-env)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
@@ -727,14 +752,14 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # 58 testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 62 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
-validador em v0.8.3:
+validador em v0.8.4:
 
 ```text
-PASS: Universal Agent Harness 0.8.3
+PASS: Universal Agent Harness 0.8.4
 PASS: 108 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
@@ -745,7 +770,7 @@ PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 
 ## Status
 
-Versão **0.8.3**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
+Versão **0.8.4**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
 catálogo de integrações (Workflow_Digestion, specboard, CalcBoard, publish-documents, sci-figures) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
 parte executável: resolvedor H0–H3 determinístico compilado para o
 Claude Code, gate de plano aprovado e checkpoint de retomada, com

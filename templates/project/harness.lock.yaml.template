@@ -4,7 +4,7 @@ project:
   title: "Replace with project title"
 
 source_versions:
-  H0: "universal-agent-harness@0.8.3"
+  H0: "universal-agent-harness@0.8.4"
   upstream_commit: "replace-with-full-upstream-commit"
   H1: []
   H2: "project.yaml@replace-with-config-hash"

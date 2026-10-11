@@ -12,6 +12,9 @@ Comandos:
   explain      mostra, em linguagem simples, as regras efetivas e de que camada vêm
   integrations lista/instala/ativa ferramentas externas do fluxo (workflow-digestion, specboard, calcboard)
   slice        fatias de MVP (SDD incremental): list | new N | activate N | done N
+  setup-env    prepara a máquina: verifica tudo e, com --install, instala sem sudo (versões fixas,
+               checksum conferido) Quarto, D2, skills do catálogo e o venv do sci-figures; para OMC,
+               molar_vis e pacotes de sistema imprime os comandos exatos
 
 Fatias: plan/approved.md é o plano geral (aprovado uma vez); plan/slices/slice-N.md são fatias
 aprovadas uma a uma (`approve --slice N`). Depois da primeira fatia, o gate G1 só libera
@@ -45,7 +48,7 @@ except ImportError:  # pragma: no cover - mensagem para o operador
     print("UAH-lite precisa de PyYAML: python3 -m pip install pyyaml", file=sys.stderr)
     raise SystemExit(2)
 
-UAH_LITE_VERSION = "0.8.3"
+UAH_LITE_VERSION = "0.8.4"
 HERE = Path(__file__).resolve().parent
 RISKS = ("low", "medium", "high")
 G4_ORDER = {"off": 0, "block": 1}
@@ -1142,6 +1145,189 @@ def cmd_checkpoint(root: Path, task: str | None, status: str, next_action: str, 
               "`python <specboard.py> validate && python <specboard.py> build` (etapas → executado + evidência).")
 
 
+# --------------------------------------------------------------- setup-env
+
+# Ferramentas instaláveis sem sudo: versão fixa + checksum publicado pelo projeto.
+SETUP_TOOLS = {
+    "quarto": {"version": "1.10.19", "check": ["quarto", "--version"],
+               "base": "https://github.com/quarto-dev/quarto-cli/releases/download/v{v}/",
+               "asset": "quarto-{v}-{plat}.tar.gz", "sums": "quarto-{v}-checksums.txt", "bin": "bin/quarto",
+               "plats": {("Linux", "amd64"): "linux-amd64", ("Linux", "arm64"): "linux-arm64",
+                         ("Darwin", "amd64"): "macos", ("Darwin", "arm64"): "macos"},
+               "for": "publish-documents", "docs": "https://quarto.org/docs/get-started/"},
+    "d2": {"version": "0.9.0", "check": ["d2", "--version"],
+           "base": "https://github.com/terrastruct/d2/releases/download/v{v}/",
+           "asset": "d2-v{v}-{plat}.tar.gz", "sums": "SHA256SUMS", "bin": "bin/d2",
+           "plats": {("Linux", "amd64"): "linux-amd64", ("Linux", "arm64"): "linux-arm64",
+                     ("Darwin", "amd64"): "macos-amd64", ("Darwin", "arm64"): "macos-arm64"},
+           "for": "sci-figures", "docs": "https://d2lang.com/tour/install"},
+}
+OMC_STEPS = ("No Claude Code: `/plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode`, "
+             "`/plugin install oh-my-claudecode` e depois `/omc-setup` (CLI opcional: `npm i -g oh-my-claude-sisyphus@latest`)")
+MOLAR_VIS_STEPS = ("requer Rust: `git clone https://github.com/yesint/molar_vis && cd molar_vis && "
+                   "~/.local/share/sci-figures/venv/bin/pip install maturin numpy && cd crates/molar_vis_py && "
+                   "VIRTUAL_ENV=~/.local/share/sci-figures/venv maturin develop --release`")
+SYSTEM_PACKAGES = [  # (comando verificado, pacote apt, para quê)
+    ("xelatex", "texlive-xetex texlive-lang-portuguese", "PDF de artigo (journal-scientific)"),
+    ("soffice", "libreoffice-writer", "prévia do DOCX e SVG→PDF"),
+    ("pdftoppm", "poppler-utils", "verificação e prévia de PDF"),
+    ("rsvg-convert", "librsvg2-bin", "SVG→PDF mais fiel (opcional)"),
+]
+
+
+def _platform() -> tuple[str, str]:
+    import platform
+    machine = platform.machine().lower()
+    arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(machine, machine)
+    return platform.system(), arch
+
+
+def _fetch(url: str, dest: Path) -> None:
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=120) as resp, open(dest, "wb") as fh:  # noqa: S310 (URLs fixas)
+        shutil.copyfileobj(resp, fh)
+
+
+def install_tool(name: str) -> str:
+    """Baixa a versão fixa, confere o SHA-256 no arquivo de checksums do projeto e liga em ~/.local/bin."""
+    import tarfile
+    import tempfile
+    spec = SETUP_TOOLS[name]
+    plat = spec["plats"].get(_platform())
+    _expect(plat is not None, f"{name}: plataforma {_platform()} sem binário automático — veja {spec['docs']}")
+    version = spec["version"]
+    base = os.environ.get("UAH_SETUP_BASE_URL", "").rstrip("/")
+    base = f"{base}/{name}/" if base else spec["base"].format(v=version)
+    asset = spec["asset"].format(v=version, plat=plat)
+    with tempfile.TemporaryDirectory() as tmp:
+        tarball, sums = Path(tmp) / asset, Path(tmp) / "sums.txt"
+        _fetch(base + asset, tarball)
+        _fetch(base + spec["sums"].format(v=version), sums)
+        expected = next((ln.split()[0] for ln in sums.read_text(encoding="utf-8").splitlines()
+                         if ln.strip().endswith(asset)), None)
+        _expect(expected is not None, f"{name}: {asset} não consta do arquivo de checksums")
+        got = sha256_bytes(tarball.read_bytes())
+        _expect(got == expected, f"{name}: checksum NÃO confere ({got[:12]} ≠ {expected[:12]}) — nada instalado")
+        dest = Path.home() / ".local" / "opt" / f"{name}-{version}"
+        if dest.exists():
+            shutil.rmtree(dest)
+        dest.mkdir(parents=True)
+        with tarfile.open(tarball) as tf:
+            members = tf.getmembers()
+            top = {m.name.split("/", 1)[0] for m in members if m.name.strip("/")}
+            strip = len(top) == 1 and all("/" in m.name or m.isdir() for m in members)
+            keep = []
+            for m in members:
+                rel = m.name.split("/", 1)[1] if strip and "/" in m.name else ("" if strip else m.name)
+                if rel:
+                    m.name = rel
+                    keep.append(m)
+            # filtro "data": recusa caminhos absolutos, `..` e links que escapem do destino
+            tf.extractall(dest, members=keep, filter="data")
+    binary = dest / spec["bin"]
+    _expect(binary.is_file(), f"{name}: {spec['bin']} não encontrado no pacote")
+    binary.chmod(0o755)
+    link = Path.home() / ".local" / "bin" / name
+    link.parent.mkdir(parents=True, exist_ok=True)
+    if link.is_symlink() or link.exists():
+        link.unlink()
+    link.symlink_to(binary)
+    return f"{name} {version} instalado em {dest} (checksum conferido) → {link}"
+
+
+def cmd_setup_env(root: Path, install: bool, wanted: list[str] | None) -> int:
+    rows: list[tuple[str, str, str]] = []
+    add = lambda level, item, msg: rows.append((level, item, msg))  # noqa: E731
+    known = catalog(root)
+    if wanted == ["all"]:
+        selected = sorted(known)
+    elif wanted:
+        bad = [w for w in wanted if w not in known]
+        _expect(not bad, f"integração desconhecida: {', '.join(bad)}; disponíveis: {', '.join(sorted(known))}")
+        selected = wanted
+    else:
+        try:
+            selected = list(load_h2(root).get("integrations") or [])
+        except (PolicyError, yaml.YAMLError):
+            selected = []
+    add("INFO", "seleção", f"integrações: {', '.join(selected) or 'nenhuma'} "
+                           f"(use --integrations id1,id2 ou all; padrão = as ativas no project.yaml)")
+
+    local_bin = str(Path.home() / ".local" / "bin")
+    add("OK" if local_bin in os.environ.get("PATH", "").split(os.pathsep) else "WARN", "PATH",
+        f"{local_bin} {'está' if local_bin in os.environ.get('PATH', '') else 'NÃO está'} no PATH"
+        + ("" if local_bin in os.environ.get("PATH", "") else " — acrescente `export PATH=\"$HOME/.local/bin:$PATH\"` ao ~/.bashrc"))
+    add("OK" if shutil.which("git") else "MISSING", "git", "presente" if shutil.which("git") else "ausente — instale o git")
+
+    link = skills_dir() / "uah-init"
+    if link.exists():
+        add("OK", "skill uah-init", f"em {link}")
+    elif install and (HERE / "SKILL.md").is_file() and HERE.resolve() != runtime_dir(root).resolve():
+        skills_dir().mkdir(parents=True, exist_ok=True)
+        link.symlink_to(HERE, target_is_directory=True)
+        add("DONE", "skill uah-init", f"ligada: {link} → {HERE}")
+    else:
+        add("MISSING", "skill uah-init", f"`ln -s <clone>/skills/uah-init {link}`")
+
+    omc = run(["omc", "--version"]) or (Path.home() / ".claude" / "plugins" / "cache" / "omc").is_dir()
+    add("OK" if omc else "MANUAL", "OMC", "presente" if omc else f"recomendado (entrevista e planejamento). {OMC_STEPS}")
+
+    for iid in selected:
+        entry = known[iid]
+        st = integration_status(entry)
+        if st["installed"]:
+            note = "origem verificada" if st["verified"] else "ORIGEM NÃO VERIFICADA"
+            if st["pinned"] is False:
+                note += f", commit {st['commit']} ≠ fixado {str(entry.get('ref'))[:12]}"
+            add("OK" if st["verified"] else "WARN", f"skill {iid}", f"{st['path']} ({note})")
+        elif install:
+            cmd_integrations(root, "install", [iid])
+            add("DONE", f"skill {iid}", "instalada no commit fixado (reinicie o Claude Code)")
+        else:
+            add("MISSING", f"skill {iid}", f"`uah.py integrations install {iid}` (ou setup-env --install)")
+
+    needed_tools = {name for name, spec in SETUP_TOOLS.items() if spec["for"] in selected}
+    for name, spec in SETUP_TOOLS.items():
+        present = run(spec["check"])
+        if present:
+            add("OK", name, present.splitlines()[0])
+        elif name not in needed_tools:
+            add("INFO", name, f"ausente (só necessário para {spec['for']})")
+        elif install:
+            add("DONE", name, install_tool(name))
+        else:
+            add("MISSING", name, f"necessário para {spec['for']} — `setup-env --install` instala a versão {spec['version']}")
+
+    if "sci-figures" in selected:
+        st = integration_status(known["sci-figures"])
+        venv_py = Path(os.environ.get("SCI_FIGURES_VENV", Path.home() / ".local/share/sci-figures/venv")) / "bin" / "python"
+        stack_ok = venv_py.is_file() and run([str(venv_py), "-c", "import rdkit, ase, matplotlib, cairosvg"]) is not None
+        if stack_ok:
+            add("OK", "venv sci-figures", str(venv_py.parent.parent))
+        elif install and st["installed"]:
+            out = subprocess.run([sys.executable, str(Path(st["path"]) / "scripts" / "figs.py"), "setup"],
+                                 capture_output=True, text=True, timeout=3600)
+            add("DONE" if out.returncode == 0 else "MISSING", "venv sci-figures",
+                (out.stdout or out.stderr).strip().splitlines()[-1] if (out.stdout or out.stderr).strip() else "")
+        else:
+            add("MISSING", "venv sci-figures", "`figs.py setup` (RDKit, ASE, matplotlib, cairosvg)")
+        has_mv = venv_py.is_file() and run([str(venv_py), "-c", "import molar_vis"]) is not None
+        add("OK" if has_mv else "MANUAL", "molar_vis", "presente" if has_mv else f"opcional (molecule-3d), {MOLAR_VIS_STEPS}")
+
+    missing_pkgs = [(c, pkg, why) for c, pkg, why in SYSTEM_PACKAGES if not shutil.which(c)]
+    if "publish-documents" in selected or wanted == ["all"]:
+        for c, pkg, why in missing_pkgs:
+            add("MANUAL", c, f"{why} — pacote {pkg}")
+        if missing_pkgs:
+            add("MANUAL", "sudo", "Debian/Ubuntu: `sudo apt install " + " ".join(p for _, p, _ in missing_pkgs) + "`")
+
+    for level, item, msg in rows:
+        print(f"[{level}] {item}: {msg}")
+    if not install and any(level == "MISSING" for level, _, _ in rows):
+        print("Para instalar o que é automático: `python3 .uah/uah.py setup-env --install` (pede confirmação no Claude Code).")
+    return 1 if any(level == "MISSING" for level, _, _ in rows) else 0
+
+
 def cmd_preflight(root: Path) -> int:
     results: list[tuple[str, str]] = []
 
@@ -1267,6 +1453,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", nargs="?", default="list", choices=("list", "install", "enable", "disable"))
     p.add_argument("ids", nargs="*")
     sub.add_parser("explain", help="explica as regras efetivas em linguagem simples")
+    p = sub.add_parser("setup-env", help="verifica a máquina e, com --install, instala o que dá sem sudo")
+    p.add_argument("--install", action="store_true", help="instala de fato (sem isso, só o relatório)")
+    p.add_argument("--integrations", default="", help="ids separados por vírgula, ou `all` (padrão: ativas no projeto)")
     p = sub.add_parser("slice", help="fatias de MVP: list | new N | activate N | done N")
     p.add_argument("action", nargs="?", default="list", choices=("list", "new", "activate", "done"))
     p.add_argument("n", nargs="?")
@@ -1304,6 +1493,9 @@ def main(argv: list[str] | None = None) -> int:
             cmd_init(root, args.project_id, args.title, args.risk, args.python, split(args.domains), split(args.integrations))
         elif args.cmd == "integrations":
             cmd_integrations(root, args.action, args.ids)
+        elif args.cmd == "setup-env":
+            ids = [x.strip() for x in args.integrations.split(",") if x.strip()] or None
+            return cmd_setup_env(root, args.install, ids)
         elif args.cmd == "explain":
             cmd_explain(root)
         elif args.cmd == "compile":

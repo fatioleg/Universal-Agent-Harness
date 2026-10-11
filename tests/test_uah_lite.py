@@ -743,6 +743,92 @@ class IntegrationTests(_Base):
         self.assertEqual(bad.returncode, 3)
 
 
+class SetupEnvTests(_Base):
+    """setup-env: relatório, instalação sem sudo com checksum conferido (espelho local, sem rede)."""
+
+    def setUp(self):
+        super().setUp()
+        shutil.rmtree(FAKE_HOME / ".claude", ignore_errors=True)
+        shutil.rmtree(FAKE_HOME / ".local", ignore_errors=True)
+
+    def mirror(self, tool: str, version: str, asset_fmt: str, sums_name: str, binary: str, corrupt: bool = False) -> Path:
+        import hashlib, io, platform, tarfile
+        arch = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower(), "amd64")
+        plats = {"quarto": {"Linux": f"linux-{arch}", "Darwin": "macos"},
+                 "d2": {"Linux": f"linux-{arch}", "Darwin": f"macos-{arch}"}}
+        asset = asset_fmt.format(v=version, plat=plats[tool][platform.system()])
+        base = Path(tempfile.mkdtemp()) / tool
+        base.mkdir(parents=True)
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+            data = f"#!/bin/sh\necho {tool}-fake {version}\n".encode()
+            info = tarfile.TarInfo(f"{tool}-top/{binary}")
+            info.size, info.mode = len(data), 0o755
+            tf.addfile(info, io.BytesIO(data))
+        (base / asset).write_bytes(buf.getvalue())
+        digest = hashlib.sha256(buf.getvalue()).hexdigest()
+        if corrupt:
+            digest = "0" * 64
+        (base / sums_name.format(v=version)).write_text(f"{digest}  {asset}\n")
+        return base.parent
+
+    def run_setup(self, p: Project, *args: str, mirror: Path | None = None) -> subprocess.CompletedProcess:
+        env = dict(ENV, PATH="/usr/bin:/bin")
+        if mirror:
+            env["UAH_SETUP_BASE_URL"] = mirror.as_uri()
+        return sh([sys.executable, str(p.root / ".uah" / "uah.py"), "setup-env", *args], p.root, env=env)
+
+    def test_report_without_install_changes_nothing(self):
+        p = self.make(risk="low")
+        out = self.run_setup(p, "--integrations", "publish-documents,sci-figures")
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("[MISSING] skill publish-documents", out.stdout)
+        self.assertIn("[MISSING] quarto", out.stdout)
+        self.assertIn("[MANUAL] OMC", out.stdout)
+        self.assertIn("/plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode", out.stdout)
+        self.assertIn("[MANUAL] molar_vis", out.stdout)
+        self.assertFalse((FAKE_HOME / ".local" / "bin").exists())
+
+    def test_install_tools_with_verified_checksum(self):
+        p = self.make(risk="low")
+        mirror = self.mirror("d2", "0.9.0", "d2-v{v}-{plat}.tar.gz", "SHA256SUMS", "bin/d2")
+        shutil.copytree(self.mirror("quarto", "1.10.19", "quarto-{v}-{plat}.tar.gz", "quarto-{v}-checksums.txt",
+                                    "bin/quarto") / "quarto", mirror / "quarto")
+        sys.path.insert(0, str(p.root / ".uah"))
+        env_backup = dict(os.environ)
+        try:
+            os.environ.update(HOME=str(FAKE_HOME), UAH_SETUP_BASE_URL=mirror.as_uri())
+            import importlib
+            uah = importlib.import_module("uah")
+            importlib.reload(uah)
+            for tool in ("d2", "quarto"):
+                msg = uah.install_tool(tool)
+                self.assertIn("checksum conferido", msg)
+                link = FAKE_HOME / ".local" / "bin" / tool
+                self.assertTrue(link.is_symlink())
+                self.assertIn(f"{tool}-fake", subprocess.run([str(link)], capture_output=True, text=True).stdout)
+        finally:
+            os.environ.clear()
+            os.environ.update(env_backup)
+            sys.path.remove(str(p.root / ".uah"))
+
+    def test_bad_checksum_installs_nothing(self):
+        p = self.make(risk="low")
+        mirror = self.mirror("d2", "0.9.0", "d2-v{v}-{plat}.tar.gz", "SHA256SUMS", "bin/d2", corrupt=True)
+        self.skills = FAKE_HOME / ".claude" / "skills"
+        IntegrationTests.verified_skill(self, "sci-figures", ("figs.py",))  # já instalada: nada de clone pela rede
+        p.edit_yaml(lambda d: d.update(integrations=["sci-figures"]))
+        p.uah("compile")
+        out = self.run_setup(p, "--install", mirror=mirror)
+        self.assertIn("checksum NÃO confere", out.stderr + out.stdout)
+        self.assertFalse((FAKE_HOME / ".local" / "bin" / "d2").exists())
+
+    def test_install_requires_human_confirmation(self):
+        p = self.make(risk="low")
+        self.assertEqual(p.bash("python3 .uah/uah.py setup-env --install"), "ask")
+        self.assertIsNone(p.bash("python3 .uah/uah.py setup-env"))
+
+
 class CodexAuditTests(_Base):
     """Regressões da auditoria do Codex (2026-10-11): bypasses do guard, bootstrap, G4, origem."""
 

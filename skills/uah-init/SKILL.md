@@ -31,6 +31,7 @@ Se o projeto declara `runtime.python` no `project.yaml` (ex.: `python` no Window
    Use rótulos de domínio como `literatura`, `revisao-de-literatura`, `artigo-teorico`, `fomento`, `edital`, `quimica-computacional`, `modelagem-molecular`, `dft`, `materiais`, `software` e `sdd`. Eles orientam as recomendações de integração.
 3b. **Integrações:** rode `python3 .uah/uah.py integrations`. Proponha só as marcadas RECOMENDADA que o projeto realmente usa, com `AskUserQuestion` (multiSelect).
    Com o "sim" do usuário: `python3 .uah/uah.py integrations enable <ids>` e, se necessário, `python3 .uah/uah.py integrations install <ids>` (clona o repositório do autor e cria a skill). Os dois comandos pedem confirmação humana. Depois de instalar, avise que é preciso reiniciar o Claude Code.
+   Se faltarem ferramentas (Quarto, D2, ambiente Python do sci-figures), rode `python3 .uah/uah.py setup-env` para o relatório. Com o "sim" do usuário, `setup-env --install` instala sem sudo, em versão fixa e com checksum conferido. Para OMC, molar_vis e pacotes de sistema, repasse ao usuário os comandos que o relatório mostra.
 4. **Proteções do projeto:** se houver dados brutos, PDFs-fonte ou resultados de referência, proponha `policy.immutable_paths` (ex.: `data/raw/**`) no `project.yaml` e rode `python3 .uah/uah.py compile`.
 5. **Plano:**
    - Objetivo claro e pequeno: escreva você mesmo `plan/approved.md` seguindo o template (escopo, entregáveis com aceite, tarefas T-xxx com "pronto quando").

@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-GUARD_VERSION = "0.8.3"
+GUARD_VERSION = "0.8.4"
 
 WRITE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 MUTATING_ALL_ARGS = {"rm", "rmdir", "unlink", "shred", "truncate", "chmod", "chown", "touch", "tee", "mv"}

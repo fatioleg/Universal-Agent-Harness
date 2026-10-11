@@ -126,6 +126,16 @@
   chemistry/materials/simulation domains, `artigo-teorico`, `relatorio`, `fomento`;
 - 48 behavioral tests.
 
+## 0.8.4 — 2026-10-11
+
+- new `uah.py setup-env [--integrations ids|all] [--install]`: reports the machine and, with `--install`,
+  installs without sudo the `uah-init` skill link, catalog skills at their pinned commit, Quarto 1.10.19 and
+  D2 0.9.0 (pinned version, SHA-256 checked against the project's checksum file, extracted to `~/.local/opt`
+  with the tarfile `data` filter, linked in `~/.local/bin`) and the sci-figures venv; prints exact commands for
+  OMC (Claude Code plugin), molar_vis (Rust/maturin) and system packages (apt);
+- `setup-env --install` requires human confirmation inside UAH projects (H0-approve rule);
+- README: "Instalação do zero" section; sci-figures catalog ref updated; 62 behavioral tests.
+
 ## 0.8.3 — 2026-10-11
 
 Correções da auditoria do Codex:
