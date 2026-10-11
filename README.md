@@ -23,7 +23,7 @@ autoridade** (sources imutáveis, representações derivadas).
 
 **Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
 rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
-[UAH-lite](#uah-lite-v080--harness-executável-por-projeto) abaixo.
+[UAH-lite](#uah-lite-v081--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -43,7 +43,7 @@ Caminhos declarativos anteriores (continuam válidos):
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
 
-## UAH-lite (v0.8.0) — harness executável por projeto
+## UAH-lite (v0.8.1) — harness executável por projeto
 
 O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
 planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
@@ -67,6 +67,7 @@ execução com o Claude Code. Ele cuida só do que nenhum dos dois faz:
 | [Workflow_Digestion](https://github.com/fatioleg/Workflow_Digestion) | documentos → corpus → grafo → vault do Obsidian | integração opcional |
 | [specboard](https://github.com/fatioleg/specboard) | painel de validação de módulos (executado ≠ verificado) | integração opcional |
 | [CalcBoard](https://github.com/fatioleg/CalcBoard) | painel dos cálculos (ORCA, CP2K, VASP, Gaussian, QE, ASE) | integração opcional |
+| [publish-documents](https://github.com/fatioleg/publish-documents) | PDF/DOCX profissional a partir de Quarto (Typst, LaTeX, Word ABNT) | integração opcional |
 | [ai-memory](https://github.com/akitaonrails/ai-memory) | memória entre sessões/agentes | opcional, não integrado ainda |
 
 ### Instalação (uma vez por máquina)
@@ -173,6 +174,7 @@ listada em `project.yaml → integrations`. A instalação é detectada, nunca p
 | [**Workflow_Digestion**](https://github.com/fatioleg/Workflow_Digestion) | descoberta | há uma pasta com muitos PDFs/DOCX/PPTX a transformar em corpus, grafo de conhecimento e vault do Obsidian (revisão de literatura, edital, base de conhecimento) | `graphify` pede confirmação (alto custo de tokens) |
 | [**specboard**](https://github.com/fatioleg/specboard) | entre o plano e a aprovação; execução | projeto modular em risco medium/high: módulos, contratos pré-registrados, fila do que o humano precisa conferir | `review`/`verify` só pelo humano; `verificacoes.jsonl` imutável; `.specboard/**` e a CLI de planejamento liberados antes da aprovação |
 | [**CalcBoard**](https://github.com/fatioleg/CalcBoard) | execução e validação | há saídas de cálculo (ORCA, CP2K, VASP, Gaussian, QE, ASE) a acompanhar e validar | `painel.py ler` liberado antes da aprovação |
+| [**publish-documents**](https://github.com/fatioleg/publish-documents) | execução e entrega | o entregável é um relatório, artigo, parecer ou proposta em PDF/DOCX: fonte única Quarto, perfis `report-visual` (Typst), `journal-scientific` (LaTeX), `word-editable` (DOCX ABNT), com preflight, verificação e inspeção visual | instalar extensões/templates (`quarto install/add/use`, `tlmgr`) pede confirmação; `preflight`/`doctor` liberados antes da aprovação |
 
 ```bash
 python3 .uah/uah.py integrations                     # o que existe, o que está ativo e o que é recomendado
@@ -239,7 +241,7 @@ Erro interno no guarda vira bloqueio (fail-closed).
 | **Claude Code** | interface, execução, aplicação das regras via hooks | ser a fonte de verdade do projeto |
 | **OMC** | entrevista e planejamento quando necessário | definir permissões ou estado canônico |
 | **UAH-lite** | arquivos mínimos, compilação das regras, gate do plano, estado de retomada | orquestrar, entrevistar, memória própria, scheduler, banco vetorial |
-| **Workflow_Digestion / specboard / CalcBoard** | digestão de documentos, painel de validação, painel de cálculos, quando ativos | entrar em projetos que não precisam deles |
+| **Workflow_Digestion / specboard / CalcBoard / publish-documents** | digestão de documentos, painel de validação, painel de cálculos, publicação PDF/DOCX, quando ativos | entrar em projetos que não precisam deles |
 | **ai-memory** | (futuro, opcional) recall entre sessões | substituir git, plano aprovado ou evidência |
 
 **Fonte de verdade:** arquivos versionados > plano aprovado > memórias (Claude, OMC, ai-memory).
@@ -662,7 +664,7 @@ Universal-Agent-Harness/
 ├── AGENTS.md                 # entrypoint para Codex / Codex Cloud
 ├── CLAUDE.md                 # entrypoint para Claude Code
 ├── HARNESS.md                # contrato canônico compartilhado
-├── VERSION                   # 0.8.0 (única versão do produto)
+├── VERSION                   # 0.8.1 (única versão do produto)
 ├── CHANGELOG.md
 ├── README.md                 # este arquivo
 │
@@ -690,7 +692,7 @@ Universal-Agent-Harness/
 │                             # profiles/ (H0 + risco H1), templates/,
 │                             # integrations/ (catálogo de ferramentas)
 │
-├── tests/test_uah_lite.py    # 46 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias)
+├── tests/test_uah_lite.py    # 47 testes comportamentais (AT-01/02/03/05/07/09/14, integrações, fatias)
 │
 ├── contracts/tools/          # 12 contratos YAML (sem código)
 │
@@ -718,15 +720,15 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # 46 testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 47 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
-validador em v0.8.0:
+validador em v0.8.1:
 
 ```text
-PASS: Universal Agent Harness 0.8.0
-PASS: 106 required files
+PASS: Universal Agent Harness 0.8.1
+PASS: 107 required files
 PASS: 12 locked invariants
 PASS: 8 bootstrap eval cases
 PASS: 11 extension schemas
@@ -736,8 +738,8 @@ PASS: version consistency (VERSION, lock template, UAH-lite runtime)
 
 ## Status
 
-Versão **0.8.0**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
-catálogo de integrações (Workflow_Digestion, specboard, CalcBoard) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
+Versão **0.8.1**. Inclui o UAH-lite com fatias de MVP (SDD incremental),
+catálogo de integrações (Workflow_Digestion, specboard, CalcBoard, publish-documents) e o comando `explain`. Desde a 0.6.0, o UAH-lite (`skills/uah-init`) é a primeira
 parte executável: resolvedor H0–H3 determinístico compilado para o
 Claude Code, gate de plano aprovado e checkpoint de retomada, com
 testes comportamentais. Também inclui: núcleo multiplataforma, 11 arquétipos de

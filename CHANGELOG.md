@@ -108,6 +108,15 @@
 - SKILL.md documents the omc-plan → import-plan → specboard → approve → execute → slice done loop with a prompt
   template; 46 behavioral tests.
 
+## 0.8.1 — 2026-10-11
+
+- added the `publish-documents` integration (catalog entry) for the new skill
+  https://github.com/fatioleg/publish-documents: single-source Quarto publishing with report-visual (Typst),
+  journal-scientific (XeLaTeX) and word-editable (ABNT DOCX) profiles, preflight, verify and visual review;
+- rules: `quarto install|add|use|update` and `tlmgr install` ask; `pubdoc.py preflight|doctor` allowed before plan
+  approval; recommended for `artigo-teorico`, `fomento`, `edital`, `relatorio`, `revisao-de-literatura`, `documentos`;
+- 47 behavioral tests.
+
 ## 0.1.0 — 2026-08-29
 
 - created the initial declarative bootstrap;

@@ -645,6 +645,22 @@ class IntegrationTests(_Base):
         start = p.hook("session-start", {})
         self.assertIn("Integração `calcboard` (instalada)", start.stdout)
 
+    def test_publish_documents_gate_and_installs(self):
+        p = self.make(risk="medium")
+        p.edit_yaml(lambda d: d["project"].update(domains=["edital"]))
+        line = [l for l in p.uah("integrations").stdout.splitlines() if l.startswith("publish-documents")][0]
+        self.assertIn("RECOMENDADA", line)
+        self.assertEqual(p.uah("integrations", "enable", "publish-documents").returncode, 0)
+        self.assertIsNone(p.bash("python3 ~/.claude/skills/publish-documents/scripts/pubdoc.py preflight publication"))
+        self.assertIsNone(p.bash("python3 /x/pubdoc.py doctor"))
+        self.assertEqual(p.bash("python3 /x/pubdoc.py render publication"), "deny")  # só depois do approve
+        p.write_plan()
+        p.uah("approve")
+        self.assertIsNone(p.bash("python3 /x/pubdoc.py render publication --all"))
+        self.assertEqual(p.bash("quarto install tinytex"), "ask")
+        self.assertEqual(p.bash("quarto use template quarto-journals/acs"), "ask")
+        self.assertIsNone(p.bash("quarto render document.qmd --to docx"))
+
     def test_install_from_pinned_catalog_entry(self):
         p = self.make(risk="low")
         src = p.root.parent / "remote-skill"

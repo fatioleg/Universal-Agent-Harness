@@ -1,0 +1,53 @@
+{
+  "id": "publish-documents",
+  "title": "publish-documents",
+  "repo": "https://github.com/fatioleg/publish-documents",
+  "skill_name": "publish-documents",
+  "skill_subdir": "publish-documents",
+  "kind": "skill",
+  "stage": "execução e entrega",
+  "domains": [
+    "artigo-teorico",
+    "fomento",
+    "edital",
+    "relatorio",
+    "revisao-de-literatura",
+    "documentos"
+  ],
+  "when": "O entregável é um documento formatado (relatório científico/institucional, artigo, parecer, proposta ou projeto de fomento) em PDF e/ou DOCX: fonte única em Quarto, perfis report-visual (Typst), journal-scientific (LaTeX) e word-editable (DOCX ABNT), com preflight, verificação e inspeção visual.",
+  "not_when": "Nota rápida ou texto que fica só no repositório (Markdown basta); edital em plataforma web (entregue texto por seção).",
+  "how": "/publish-documents → pubdoc.py new → preflight → render → verify → inspeção visual da folha de contato",
+  "outputs": [
+    "publication/document.qmd",
+    "publication/outputs/*.pdf|*.docx",
+    "publication/outputs/manifest.json"
+  ],
+  "requires": [
+    "Quarto >= 1.6 (traz Pandoc e Typst)",
+    "Python 3 + PyYAML",
+    "opcional: XeLaTeX, LibreOffice, poppler-utils, Pillow"
+  ],
+  "policy": {
+    "bash_ask": [
+      {
+        "id": "INT-PD-install",
+        "pattern": "\\bquarto\\s+(install|add|use|update|remove)\\b|\\btlmgr\\s+(install|update)\\b",
+        "reason": "instalar extensões/templates/pacotes TeX baixa código da internet e altera o ambiente"
+      }
+    ],
+    "gate_cli": [
+      {
+        "script": "pubdoc.py",
+        "subcommands": [
+          "preflight",
+          "doctor"
+        ]
+      }
+    ]
+  },
+  "advice": [
+    "Registre o perfil (report-visual | journal-scientific | word-editable) no plano aprovado; o template exigido pelo destinatário manda.",
+    "Use os portões de QA como critérios de aceite da fatia: preflight e verify sem FAIL, inspeção visual registrada, aceite do responsável.",
+    "Depois do aceite, considere declarar publication/outputs/** em policy.protected_paths."
+  ]
+}
