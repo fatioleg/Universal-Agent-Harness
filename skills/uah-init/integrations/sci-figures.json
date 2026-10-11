@@ -14,9 +14,12 @@
     "dft",
     "materiais",
     "relatorio",
-    "fomento"
+    "fomento",
+    "biomolecular",
+    "proteinas",
+    "docking"
   ],
-  "when": "O projeto precisa de figuras de publicação: moléculas 2D (RDKit, ACS 1996), estruturas de moléculas, aglomerados, cristais e superfícies (ASE), fluxogramas e pipelines (D2) ou gráficos de dados (matplotlib, estilo de periódico), cada uma com especificação curta, manifesto de proveniência e verificação.",
+  "when": "O projeto precisa de figuras de publicação: moléculas 2D (RDKit, ACS 1996), estruturas 3D ray-traced (molar_vis: proteínas, docking, superfícies, trajetórias MD), estruturas de moléculas, aglomerados, cristais e superfícies (ASE), fluxogramas e pipelines (D2) ou gráficos de dados (matplotlib, estilo de periódico), cada uma com especificação curta, manifesto de proveniência e verificação.",
   "not_when": "Projeto sem figuras ou só com capturas de tela; painel interativo de cálculos (use CalcBoard); ilustração de capa (Blender, manual).",
   "how": "/sci-figures → figs.py new → editar fig.yaml → render → verify → inspeção visual da folha de contato → qmd",
   "outputs": [
@@ -28,6 +31,7 @@
   "requires": [
     "Python 3 + venv (figs.py setup instala RDKit, ASE, matplotlib, cairosvg, Pillow, PyYAML)",
     "D2 >= 0.6 (diagramas)",
+    "Rust toolchain + maturin (molecule-3d: molar_vis Python bindings; build from source)",
     "opcional: PyMOL, VESTA, POV-Ray"
   ],
   "policy": {
@@ -36,6 +40,11 @@
         "id": "INT-SF-setup",
         "pattern": "\\bfigs\\.py\\s+(--dir\\s+\\S+\\s+)?setup\\b",
         "reason": "figs.py setup baixa e instala pacotes Python (RDKit, ASE, matplotlib) num venv"
+      },
+      {
+        "id": "INT-SF-molar-vis",
+        "pattern": "maturin\\s+develop",
+        "reason": "maturin compila o molar_vis (Rust) para Python; requer toolchain Rust"
       }
     ],
     "gate_cli": [
@@ -50,6 +59,7 @@
   "advice": [
     "Figura de dados vem de arquivo de dados versionado (inputs:) e de script; nunca de imagem gerada por IA.",
     "Use os portões como critérios de aceite da fatia: verify sem FAIL e folha de contato inspecionada.",
-    "Com publish-documents, inclua as figuras com `figs.py qmd <id> --relative-to publication`."
+    "Com publish-documents, inclua as figuras com `figs.py qmd <id> --relative-to publication`.",
+    "Para molecule-3d: forneça PDB/GRO/XYZ/SDF/CIF e configure `representations` (cartoon, surface, ballstick, licorice, lines, vdw), `color_preset` (VMD, PyMOL, MolStar, etc.) e `camera` (ambient_occlusion, shadows, projection)."
   ]
 }
