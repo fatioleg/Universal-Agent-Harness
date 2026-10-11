@@ -21,12 +21,9 @@ autoridade** (sources imutáveis, representações derivadas).
 
 ## Como usar em um projeto novo
 
-**Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez
-(`ln -s "$PWD/skills/uah-init" ~/.claude/skills/uah-init`) e rode
-`/uah-init` no Claude Code dentro do projeto. Ela cria 5 arquivos curtos,
-compila H0–H3 em `permissions` e hooks do Claude Code, exige plano aprovado
-por humano antes de alterações materiais (risco medium/high) e mantém
-`state/current.md` para retomada. Detalhes: [`docs/uah-lite.md`](docs/uah-lite.md).
+**Caminho recomendado (v0.6.0): UAH-lite.** Instale a skill uma vez e
+rode `/uah-init` no Claude Code dentro do projeto. Veja a seção
+[UAH-lite](#uah-lite-v060--harness-executável-por-projeto) abaixo.
 
 Caminhos declarativos anteriores (continuam válidos):
 
@@ -45,6 +42,148 @@ Caminhos declarativos anteriores (continuam válidos):
 
 Todos os caminhos terminam em `APPROVE`, `REVISE` ou `BLOCK`
 antes de qualquer modificação no projeto de destino.
+
+## UAH-lite (v0.6.0) — harness executável por projeto
+
+O UAH-lite é a parte executável do UAH. Ele **não orquestra**: entrevista e
+planejamento ficam com o [Oh My ClaudeCode (OMC)](https://github.com/Yeachan-Heo/oh-my-claudecode),
+execução com o Claude Code. Ele cuida só do que nenhum dos dois faz:
+
+1. materializa o **mínimo** de arquivos por projeto;
+2. **compila** as regras H0–H3 em `permissions` e hooks do Claude Code (o único
+   ponto onde regras são aplicadas de fato, sem depender da boa vontade do modelo);
+3. amarra a execução a um **plano aprovado por humano** (gate G1, vinculado ao hash do plano);
+4. mantém o **estado de retomada** no repositório (gate G4), para outra sessão,
+   conta ou máquina continuar o trabalho.
+
+### Requisitos
+
+| Componente | Papel | Obrigatório? |
+|---|---|---|
+| [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) | interface e execução; seus hooks aplicam as regras | sim |
+| Python 3.10+ e PyYAML | `uah.py` (o hook usa só a biblioteca padrão) | sim |
+| git (+ remoto) | estado canônico e retomada entre máquinas | recomendado |
+| [OMC](https://github.com/Yeachan-Heo/oh-my-claudecode) | `deep-interview` e `plan`/`ralplan` quando o objetivo é ambíguo ou grande; `omc capabilities` fixa a versão | recomendado |
+| [ai-memory](https://github.com/akitaonrails/ai-memory) | memória entre sessões/agentes | opcional, não integrado ainda |
+
+### Instalação (uma vez por máquina)
+
+```bash
+git clone git@github.com:fatioleg/Universal-Agent-Harness.git
+ln -s "$PWD/Universal-Agent-Harness/skills/uah-init" ~/.claude/skills/uah-init
+```
+
+### Fluxo
+
+```text
+/uah-init no Claude Code (dentro do projeto)
+   │
+   ▼
+G0 · Descoberta (só leitura)
+   │   se já existe .uah/ → preflight, resume o estado e para
+   ▼
+Escolha do risco (confirmada pelo usuário)
+   │   low    → sem gate de plano
+   │   medium → gate G1 (padrão)
+   │   high   → gate G1 + checkpoint G4 obrigatório + confirmação extra
+   ▼
+uah.py init
+   │   cria: CLAUDE.md/AGENTS.md (bloco UAH), project.yaml,
+   │         plan/approved.md (rascunho), state/current.md
+   │   instala: .uah/ (uah.py, guarda, perfis) e .claude/settings.json (hooks)
+   │   registra: versões do Claude Code e do OMC + omc capabilities lock
+   ▼
+Plano
+   │   objetivo pequeno e claro → o Claude escreve o plano direto
+   │   ambíguo ou grande → OMC deep-interview e/ou plan
+   │                       → uah.py import-plan .omc/plans/x.md
+   ▼
+G1 · Aprovação humana
+   │   uah.py approve → o guarda pede confirmação → grava o sha256 do plano
+   │   editar o corpo do plano depois reabre o gate
+   ▼
+Execução (Claude Code / OMC, normalmente)
+   │   a cada ação o hook-guarda decide: bloquear / pedir confirmação / liberar
+   ▼
+G4 · Checkpoint
+   │   uah.py checkpoint --task T-001 --status paused --next "..."
+   │   (em risco alto, o hook Stop não deixa encerrar sem isso)
+   ▼
+Retomada (outra sessão, conta ou máquina)
+       hook SessionStart injeta: plano aprovado?, tarefa, próxima ação, bloqueios
+       uah.py preflight confere política, hooks, plano, git e superfície do OMC
+```
+
+### Comandos
+
+Antes do `init`, use `python3 ~/.claude/skills/uah-init/uah.py`; depois,
+a cópia fixada no projeto, `python3 .uah/uah.py`. Na sessão, `/uah-init`
+conduz tudo isso por você.
+
+| Comando | O que faz |
+|---|---|
+| `init --risk low\|medium\|high [--title …] [--python python]` | cria/atualiza os arquivos mínimos e o runtime `.uah/` (idempotente; preserva conteúdo existente) |
+| `compile` | resolve H0+H1+H2+H3 → `.uah/policy.json` + `.claude/settings.json` |
+| `import-plan <arquivo>` | traz plano/spec do OMC para `plan/approved.md` (status draft; troca a home por `~`) |
+| `approve [--by nome]` | aprova a revisão atual do plano (exige escopo e critério de aceite) |
+| `task --id T-xxx [--grant id --hours N] [--clear]` | contexto H3 da tarefa; concessão temporária só das listadas em `grantable` |
+| `checkpoint --task … --status … --next "…" [--blocker …]` | atualiza `state/current.md` com commit, revisão do plano e próxima ação |
+| `preflight` / `status` | verifica política, hooks, plano, estado, git e versões; `FAIL` sai com código 1 |
+
+### Arquivos em cada projeto
+
+| Arquivo | Papel |
+|---|---|
+| `CLAUDE.md` / `AGENTS.md` | entrypoint curto (bloco `UAH:BEGIN…END`; o resto do arquivo é preservado) |
+| `project.yaml` | H2: identidade, risco e regras do projeto (editar pede confirmação) |
+| `plan/approved.md` | plano; o hash do corpo é a revisão aprovada |
+| `state/current.md` | estado de retomada (tarefa, status, próxima ação, commit) |
+| `.uah/` | runtime fixado: `uah.py`, `hooks/uah_guard.py`, perfis, `policy.json`, `plan.lock.json`, versões (imutável para o agente) |
+| `.claude/settings.json` | `permissions` + hooks `PreToolUse`, `SessionStart` (e `Stop` em risco alto); configurações suas são preservadas |
+
+Faça commit de tudo, inclusive `.uah/`. **Não** versione `.omc/` (pode conter transcripts).
+
+### Camadas H0–H3 (merge tipado, fail-closed)
+
+- **H0** — invariantes universais: não apagar raiz/home, nada de `curl | sh`, sem force push;
+  push, publicação, envio de dados e `sudo` pedem confirmação; aprovação é sempre humana.
+- **H1** — perfil escolhido pelo risco (`low`, `medium`, `high`).
+- **H2** — `project.yaml`: caminhos imutáveis/protegidos, regras extras, `settings_allow`, `grantable`.
+- **H3** — `.uah/task.yaml`: restrições da tarefa e concessões temporárias (máx. 7 dias).
+
+Camadas inferiores só **endurecem**. Afrouxar uma regra superior, `settings_allow`
+amplo (ex.: `Bash(git:*)`), campo desconhecido ou regex inválida → `BLOQUEADO`, e nada é escrito.
+
+### Como o hook-guarda decide (nesta ordem)
+
+1. **Bloqueia** comando perigoso (H0 e regras do projeto).
+2. **Bloqueia** escrita em caminho imutável (`.uah/`, `.git/`, `data/raw/`…), inclusive via redirecionamento com aspas, `sed -i`, `cd … &&`.
+3. **Pede confirmação** para aprovar plano ou conceder permissão temporária.
+4. **Bloqueia** alteração material se o plano não foi aprovado ou mudou (leitura e edição do plano seguem livres).
+5. **Libera** comando coberto inteiro por concessão temporária válida.
+6. **Pede confirmação** para push, publicação, envio de dados, `sudo` e arquivos protegidos.
+7. Fora isso, não opina: vale o fluxo normal do Claude Code.
+
+Erro interno no guarda vira bloqueio (fail-closed).
+
+### Quem faz o quê
+
+| | Faz | Não faz |
+|---|---|---|
+| **Claude Code** | interface, execução, aplicação das regras via hooks | ser a fonte de verdade do projeto |
+| **OMC** | entrevista e planejamento quando necessário | definir permissões ou estado canônico |
+| **UAH-lite** | arquivos mínimos, compilação das regras, gate do plano, estado de retomada | orquestrar, entrevistar, memória própria, scheduler, banco vetorial |
+| **ai-memory** | (futuro, opcional) recall entre sessões | substituir git, plano aprovado ou evidência |
+
+**Fonte de verdade:** arquivos versionados > plano aprovado > memórias (Claude, OMC, ai-memory).
+
+### Limites conhecidos
+
+- A análise de Bash é heurística: protege contra deriva do agente, não contra um adversário (`python -c`, scripts não são inspecionados por dentro).
+- Os hooks são do Claude Code; no Codex, o `AGENTS.md` e o estado são lidos, mas o enforcement depende do sandbox dele.
+- Windows nativo: use `--python python`; alguns recursos do OMC são só Linux — prefira WSL2.
+
+Mais detalhes: [`docs/uah-lite.md`](docs/uah-lite.md) · decisão: AD-014 em [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
 ## Funcionalidades disponíveis para estruturar um harness otimizado
 
@@ -511,7 +650,7 @@ python -m pip install -r requirements-dev.txt
 python scripts/validate_repo.py
 ```
 
-python -m unittest discover -s tests -v   # testes comportamentais do UAH-lite
+python -m unittest discover -s tests -v   # 30 testes comportamentais do UAH-lite
 ```
 
 O validador e os testes rodam no GitHub Actions. Saída esperada do
